@@ -67,8 +67,14 @@ const moonSky = new THREE.MeshBasicMaterial({ color: '#07101c', side: THREE.Doub
 const moonDisc = new THREE.MeshBasicMaterial({ color: '#dce8eb', transparent: true, opacity: 0.9, side: THREE.DoubleSide })
 const flameMaterial = new THREE.MeshBasicMaterial({ color: '#ffc071', toneMapped: false })
 const lanternGlowMaterial = new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.82, toneMapped: false })
+const courtyardIron = new THREE.MeshStandardMaterial({ color: '#12100e', roughness: 0.4, metalness: 0.78 })
+const courtyardFoliage = new THREE.MeshStandardMaterial({ color: '#17251d', roughness: 0.98, metalness: 0 })
+const courtyardTrunk = new THREE.MeshStandardMaterial({ color: '#302016', roughness: 0.96, metalness: 0 })
+const courtyardNight = new THREE.MeshStandardMaterial({ color: '#10151a', emissive: '#07111a', emissiveIntensity: 0.45, roughness: 0.9, metalness: 0 })
 const interactionMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
 const unitBoxGeometry = new THREE.BoxGeometry(1, 1, 1)
+const courtyardTreeGeometry = new THREE.ConeGeometry(1, 1, 10)
+const courtyardTrunkGeometry = new THREE.CylinderGeometry(1, 1, 1, 9)
 function createBookGeometry() {
   const source = new THREE.BoxGeometry(1, 1, 1).toNonIndexed()
   const positions = source.getAttribute('position')
@@ -986,6 +992,107 @@ function EntranceArchitecture() {
   )
 }
 
+function CourtyardLantern({ position, rotation = [0, 0, 0], withLight = false }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh material={courtyardIron} position={[0, 0, -0.12]}><boxGeometry args={[0.48, 0.72, 0.12]} /></mesh>
+      <mesh material={courtyardIron} position={[0, -0.22, 0.16]}><boxGeometry args={[0.76, 0.1, 0.54]} /></mesh>
+      <mesh material={lanternGlowMaterial} position={[0, 0.03, 0.22]} scale={[1, 1.45, 0.62]}><sphereGeometry args={[0.12, 10, 8]} /></mesh>
+      {withLight && <pointLight position={[0, 0, 0.42]} color="#e4944f" intensity={13} distance={9} decay={2} />}
+    </group>
+  )
+}
+
+function ExteriorCourtyard() {
+  const sourceMaps = useTexture(ENTRANCE_STONE_TEXTURES)
+  const { floorMaterial, wallMaterial, pathMaterial } = useMemo(() => {
+    const makeMaps = (repeatX, repeatY) => {
+      const maps = {}
+      Object.entries(sourceMaps).forEach(([key, texture]) => {
+        const clone = texture.clone()
+        clone.wrapS = THREE.RepeatWrapping
+        clone.wrapT = THREE.RepeatWrapping
+        clone.repeat.set(repeatX, repeatY)
+        clone.colorSpace = key === 'map' ? THREE.SRGBColorSpace : THREE.NoColorSpace
+        clone.needsUpdate = true
+        maps[key] = clone
+      })
+      return maps
+    }
+    const floor = makeMaps(7.5, 6.2)
+    const walls = makeMaps(1.4, 1.8)
+    const path = makeMaps(1.3, 6.5)
+    return {
+      floorMaterial: new THREE.MeshStandardMaterial({ map: floor.map, normalMap: floor.normalMap, roughnessMap: floor.armMap, normalScale: new THREE.Vector2(0.42, 0.42), color: '#5b5550', roughness: 0.98 }),
+      wallMaterial: new THREE.MeshStandardMaterial({ map: walls.map, normalMap: walls.normalMap, roughnessMap: walls.armMap, normalScale: new THREE.Vector2(0.65, 0.65), color: '#554941', emissive: '#120b08', emissiveIntensity: 0.12, roughness: 0.98 }),
+      pathMaterial: new THREE.MeshStandardMaterial({ map: path.map, normalMap: path.normalMap, roughnessMap: path.armMap, normalScale: new THREE.Vector2(0.5, 0.5), color: '#81756a', roughness: 0.97 }),
+    }
+  }, [sourceMaps])
+  const sideWallTransforms = useMemo(() => [-1, 1].map((side) => ({
+    position: [side * 14.4, 2.85, 20.15], scale: [0.78, 5.7, 24.5],
+  })), [])
+  const sideButtresses = useMemo(() => [-1, 1].flatMap((side) => [10.4, 15.55, 20.7, 25.85, 31].map((z) => ({
+    position: [side * 13.92, 2.72, z], scale: [1.45, 5.45, 0.72],
+  }))), [])
+  const rearButtresses = useMemo(() => [-12.2, -8.15, -4.1, 4.1, 8.15, 12.2].map((x) => ({
+    position: [x, 2.72, 31.95], scale: [0.72, 5.45, 1.42],
+  })), [])
+  const archBackings = useMemo(() => [
+    ...[-1, 1].flatMap((side) => [12.95, 18.1, 23.25, 28.4].map((z) => ({ position: [side * 13.96, 2.85, z], scale: [0.08, 3.85, 3.76] }))),
+    ...[-10.15, -6.1, 6.1, 10.15].map((x) => ({ position: [x, 2.85, 31.5], scale: [3.18, 3.85, 0.08] })),
+  ], [])
+  const treePositions = useMemo(() => [
+    ...[-1, 1].flatMap((side) => [11.4, 16.7, 22, 27.3].map((z, index) => ({
+      position: [side * (15.55 + (index % 2) * 0.35), 7.55, z], scale: [2.15, 5.1 + (index % 2) * 0.7, 2.15],
+    }))),
+    ...[-11.7, -7.6, 7.6, 11.7].map((x, index) => ({ position: [x, 7.35, 33.25], scale: [2.25, 4.8 + (index % 2) * 0.65, 2.25] })),
+  ], [])
+  const trunkPositions = useMemo(() => treePositions.map((tree) => ({
+    position: [tree.position[0], 4.15, tree.position[2]], scale: [0.3, 4.4, 0.3],
+  })), [treePositions])
+  const gateBars = useMemo(() => [
+    ...[-2.2, -1.65, -1.1, -0.55, 0, 0.55, 1.1, 1.65, 2.2].map((x) => ({ position: [x, 2.55, 31.05], scale: [0.075, 4.75, 0.09] })),
+    { position: [0, 1.15, 31.02], scale: [5.1, 0.12, 0.1] },
+    { position: [0, 3.78, 31.02], scale: [5.1, 0.12, 0.1] },
+  ], [])
+  const pathBorders = useMemo(() => [-1, 1].map((side) => ({ position: [side * 3.35, 0.105, 20.1], scale: [0.09, 0.05, 23.2] })), [])
+
+  return (
+    <group name="exterior-courtyard">
+      <mesh receiveShadow material={floorMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 20.1]}><planeGeometry args={[29.2, 24.6]} /></mesh>
+      <mesh receiveShadow material={pathMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.084, 20.1]}><planeGeometry args={[6.6, 23.2]} /></mesh>
+      <StaticInstances material={brass} transforms={pathBorders} />
+      <StaticInstances material={wallMaterial} transforms={sideWallTransforms} />
+      <mesh material={wallMaterial} position={[0, 2.85, 32.05]}><boxGeometry args={[29.55, 5.7, 0.78]} /></mesh>
+      <StaticInstances material={wallMaterial} transforms={sideButtresses} />
+      <StaticInstances material={wallMaterial} transforms={rearButtresses} />
+      <StaticInstances material={courtyardNight} transforms={archBackings} />
+      {[-1, 1].flatMap((side) => [12.95, 18.1, 23.25, 28.4].map((z) => (
+        <mesh key={`side-arch-${side}-${z}`} geometry={sideGothicArchGeometry} material={wallMaterial} position={[side * 13.82, 0.44, z]} scale={[0.39, 0.39, 0.39]} />
+      )))}
+      {[-10.15, -6.1, 6.1, 10.15].map((x) => (
+        <mesh key={`rear-arch-${x}`} geometry={sideGothicArchGeometry} material={wallMaterial} position={[x, 0.44, 31.36]} rotation={[0, Math.PI / 2, 0]} scale={[0.39, 0.39, 0.39]} />
+      ))}
+      <mesh material={courtyardNight} position={[0, 2.72, 31.58]}><boxGeometry args={[5.65, 5.15, 0.12]} /></mesh>
+      <StaticInstances material={courtyardIron} transforms={gateBars} />
+      <mesh material={brass} position={[0, 4.72, 30.92]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[2.55, 0.07, 8, 44, Math.PI]} /></mesh>
+      <StaticInstances geometry={courtyardTrunkGeometry} material={courtyardTrunk} transforms={trunkPositions} />
+      <StaticInstances geometry={courtyardTreeGeometry} material={courtyardFoliage} transforms={treePositions} />
+      <mesh material={moonDisc} position={[0, 8.5, 31.3]}><circleGeometry args={[1.1, 36]} /></mesh>
+      <mesh material={wallMaterial} position={[-11.65, 0.5, 20.2]}><boxGeometry args={[1.4, 1, 17.5]} /></mesh>
+      <mesh material={wallMaterial} position={[11.65, 0.5, 20.2]}><boxGeometry args={[1.4, 1, 17.5]} /></mesh>
+      <mesh material={courtyardFoliage} position={[-11.65, 1.03, 20.2]}><boxGeometry args={[1.22, 0.42, 17.1]} /></mesh>
+      <mesh material={courtyardFoliage} position={[11.65, 1.03, 20.2]}><boxGeometry args={[1.22, 0.42, 17.1]} /></mesh>
+      <CourtyardLantern position={[-13.45, 3.45, 15.55]} rotation={[0, Math.PI / 2, 0]} withLight />
+      <CourtyardLantern position={[13.45, 3.45, 15.55]} rotation={[0, -Math.PI / 2, 0]} withLight />
+      <CourtyardLantern position={[-13.45, 3.45, 25.85]} rotation={[0, Math.PI / 2, 0]} />
+      <CourtyardLantern position={[13.45, 3.45, 25.85]} rotation={[0, -Math.PI / 2, 0]} />
+      <CourtyardLantern position={[-3.4, 3.45, 31.2]} />
+      <CourtyardLantern position={[3.4, 3.45, 31.2]} />
+    </group>
+  )
+}
+
 function EntranceScene({ progress, exploreEnabled = false }) {
   const facadeRef = useRef()
   useFrame(() => {
@@ -993,6 +1100,7 @@ function EntranceScene({ progress, exploreEnabled = false }) {
   })
   return (
     <group name="entrance-scene">
+      <ExteriorCourtyard />
       <EntranceFrame />
       <group ref={facadeRef}><EntranceArchitecture /></group>
       <Door side={-1} progress={progress} forceClosed={exploreEnabled} openForExplorer={exploreEnabled} />
@@ -1706,6 +1814,9 @@ function InspectionCameraRig({ view }) {
       entranceLeft: { pos: [-4.15, 2.65, -4.2], look: [0, 4.45, 8.45] },
       entranceRight: { pos: [4.15, 2.65, -4.2], look: [0, 4.45, 8.45] },
       entranceThresholdOutside: { pos: [0, 2.05, 12.65], look: [0, 3.2, 8.35] },
+      courtyardRear: { pos: [0, 2.05, 12.8], look: [0, 3.2, 31.5] },
+      courtyardLeft: { pos: [1.5, 2.05, 19], look: [-13.7, 3.1, 20.5] },
+      courtyardRight: { pos: [-1.5, 2.05, 23], look: [13.7, 3.1, 23.8] },
       table: { pos: [2.9, 2.35, -2.4], look: [4.25, 1.1, -8] },
       candle: { pos: [-2.8, 2.3, -2.5], look: [-4.25, 1.1, -8] },
       aisle: { pos: [-14.5, 2.2, -32], look: [-21, 3.2, -37] },
@@ -1762,11 +1873,11 @@ const exploreObstacles = [
 function canExploreAt(x, z) {
   const radius = 0.34
   if (x < -22.2 || x > 22.2 || z < -69.5) return false
-  // The exterior is intentionally limited to the stone approach directly in
-  // front of the doors. It gives an escaped player enough room to turn around
-  // and walk back in, while the return wall remains impassable everywhere
-  // outside the actual doorway.
-  if (z > 6.4 && (z > 21.15 || Math.abs(x) > 3.55)) return false
+  // Keep the entrance wall solid except at the real doorway, then open into a
+  // proper courtyard. The short throat prevents diagonal wall clipping while
+  // still letting the visitor walk back through either opening door.
+  if (z > 6.4 && z < 9.35 && Math.abs(x) > 3.55) return false
+  if (z >= 9.35 && (Math.abs(x) > 10.75 || z > 30.55)) return false
   return !exploreObstacles.some((box) => (
     Math.abs(x - box.x) < box.halfX + radius && Math.abs(z - box.z) < box.halfZ + radius
   ))
