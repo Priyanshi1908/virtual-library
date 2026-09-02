@@ -1,0 +1,6 @@
+Stone Wall 04 by Amal Kumar / Poly Haven
+https://polyhaven.com/a/stone_wall_04
+
+License: CC0
+Resolution: 2K
+Maps used: Diffuse, AO/Roughness/Metalness, Normal (OpenGL)

@@ -1,0 +1,10 @@
+Poly Haven — Dark Wood
+https://polyhaven.com/a/dark_wood
+
+Downloaded at 2K resolution as JPG maps:
+- Diffuse
+- Ambient occlusion
+- ARM (ambient occlusion, roughness, metalness)
+- OpenGL normal
+
+Poly Haven assets are licensed CC0.
