@@ -33,7 +33,6 @@ button { color: inherit; }
 .loading__image { position: absolute; inset: 0; background: radial-gradient(circle at 50% 45%, #3a1d0d, #090402 58%, #020101); opacity: .55; transform: scale(1.03); animation: breathe 4s ease-in-out infinite alternate; }
 .loading__veil { position: absolute; inset: 0; background: rgba(2,1,1,.6); }
 .loading__content { position: relative; text-align: center; }
-.loading__monogram { display: block; font: 500 28px/1 var(--serif); color: var(--brass); margin-bottom: 22px; }
 .loading h1 { margin: 0; font: 500 clamp(46px, 7vw, 88px)/.9 var(--serif); letter-spacing: .08em; text-transform: uppercase; }
 .loading p { margin: 20px 0 24px; color: rgba(218,198,154,.65); font: italic 18px var(--serif); }
 .loading__line { display: block; width: 170px; height: 1px; background: rgba(164,123,62,.2); margin: auto; overflow: hidden; }

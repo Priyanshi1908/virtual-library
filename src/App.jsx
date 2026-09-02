@@ -32,8 +32,7 @@ function LoadingScreen({ ready }) {
       <div className="loading__image" />
       <div className="loading__veil" />
       <div className="loading__content">
-        <span className="loading__monogram">L</span>
-        <h1>The Library</h1>
+        <h1>Virtual Library</h1>
         <p>Lighting the candles…</p>
         <span className="loading__line"><i /></span>
       </div>
