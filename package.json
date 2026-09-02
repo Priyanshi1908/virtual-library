@@ -11,7 +11,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "check": "npm run build",
     "deploy": "npm run build && wrangler pages deploy dist --project-name virtual-library --branch main",
-    "cloudflare:whoami": "wrangler whoami"
+    "cloudflare:whoami": "wrangler whoami",
+    "cloudflare:projects": "wrangler pages project list"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.6",
