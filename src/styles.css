@@ -562,6 +562,23 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
 .book-spread .page--empty { background-color: #cbb88f; }
 .book-spread .page--empty::after { box-shadow: inset 0 0 45px rgba(61,28,7,.23); }
 .book-spread .page__number { right: clamp(18px,2vw,28px); bottom: clamp(13px,1.8vh,18px); }
+
+/* page-flip places both backward shadows above the moving leaf. On a left-page
+   turn that washes the curled paper into one bright strip. Keep the cast shadow
+   below the leaf, then retain a restrained crease shadow above it so the real
+   paper surface and its free edge remain visible throughout the turn. */
+.book-shell.is-turning-back .book-spread .page.--right:not(.--simple) {
+  z-index: 11 !important;
+  filter: drop-shadow(5px 1px 3px rgba(45,21,7,.48));
+}
+.book-shell.is-turning-back .book-spread .stf__outerShadow {
+  z-index: 9 !important;
+  opacity: .68;
+}
+.book-shell.is-turning-back .book-spread .stf__innerShadow {
+  z-index: 12 !important;
+  opacity: .52;
+}
 .reduce-library-motion *,.reduce-library-motion *::before,.reduce-library-motion *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 
 @media (max-width: 900px) {

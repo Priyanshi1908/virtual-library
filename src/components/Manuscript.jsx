@@ -226,6 +226,44 @@ function BookSpread({ pages, flipBookRef, onFlip, onStateChange }) {
   )
 }
 
+function addBackwardLeafFront(pageFlip, controller) {
+  const animation = controller?.render?.animation
+  const movingPage = controller?.flippingPage?.getElement?.()
+  const currentPage = pageFlip?.getPage?.(pageFlip.getCurrentPageIndex?.())?.getElement?.()
+  if (!animation?.frames?.length || !movingPage || !currentPage) return
+
+  const originalNodes = [...movingPage.childNodes].map((node) => node.cloneNode(true))
+  const frontNodes = [...currentPage.childNodes].map((node) => node.cloneNode(true))
+  const originalKind = [...movingPage.classList].find((name) => name.startsWith('page--'))
+  const frontKind = [...currentPage.classList].find((name) => name.startsWith('page--'))
+  let restored = false
+
+  const restoreDestinationFace = () => {
+    if (restored) return
+    restored = true
+    movingPage.replaceChildren(...originalNodes.map((node) => node.cloneNode(true)))
+    if (frontKind) movingPage.classList.remove(frontKind)
+    if (originalKind) movingPage.classList.add(originalKind)
+  }
+
+  movingPage.replaceChildren(...frontNodes)
+  if (originalKind) movingPage.classList.remove(originalKind)
+  if (frontKind) movingPage.classList.add(frontKind)
+
+  const frames = animation.frames
+  const midpoint = Math.floor(frames.length / 2)
+  animation.frames = frames.map((frame, index) => () => {
+    frame()
+    if (index >= midpoint) restoreDestinationFace()
+  })
+
+  const finish = animation.onAnimateEnd
+  animation.onAnimateEnd = () => {
+    restoreDestinationFace()
+    finish?.()
+  }
+}
+
 function StarChart({ variant }) {
   return (
     <svg className="star-chart" viewBox="0 0 260 190" aria-label={`${variant} illustration`}>
@@ -434,6 +472,7 @@ export default function Manuscript({ open, book, onClose }) {
     const next = Math.max(0, Math.min(lastSpread, currentPage + direction * 2))
     if (next === currentPage) return
     cue('page', .38)
+    setTurning(direction > 0 ? 'is-turning-forward' : 'is-turning-back')
     const pageFlip = flipBookRef.current?.pageFlip()
     if (direction > 0) pageFlip?.flipNext('top')
     else {
@@ -442,7 +481,10 @@ export default function Manuscript({ open, book, onClose }) {
       // mirrored coordinate so the leaf completes its travel to the right.
       const bounds = pageFlip?.getBoundsRect?.()
       const controller = pageFlip?.getFlipController?.()
-      if (bounds && controller?.flip) controller.flip({ x: bounds.left + 10, y: 1 })
+      if (bounds && controller?.flip) {
+        controller.flip({ x: bounds.left + 10, y: 1 })
+        addBackwardLeafFront(pageFlip, controller)
+      }
       else pageFlip?.flipPrev('top')
     }
   }, [currentPage, pages.length, reader.kind])
@@ -460,6 +502,7 @@ export default function Manuscript({ open, book, onClose }) {
 
   const onBookStateChange = useCallback((event) => {
     bookFlipping.current = event.data === 'flipping'
+    if (event.data === 'read') setTurning(null)
   }, [])
 
   useEffect(() => {
@@ -483,7 +526,7 @@ export default function Manuscript({ open, book, onClose }) {
       {reader.status === 'ready' && reader.kind === 'pdf' && <PdfSpread reader={reader} />}
       {reader.status === 'ready' && reader.kind !== 'pdf' && (
         <>
-          <div className="book-shell" onClick={turnFromPageClick}>
+          <div className={`book-shell ${turning || ''}`} onClick={turnFromPageClick}>
             <i className="book-page-block book-page-block--left" aria-hidden="true" />
             <i className="book-page-block book-page-block--right" aria-hidden="true" />
             <BookSpread pages={pages} flipBookRef={flipBookRef} onFlip={onBookFlip} onStateChange={onBookStateChange} />
