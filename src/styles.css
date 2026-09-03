@@ -529,6 +529,14 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
 .book-spread .page.stf__item {
   position: absolute;
 }
+/* Static leaves tilt their text frame 2.8° in 3D, but the renderer strips
+   `--simple` the moment a turn starts, snapping the frame flat — then the
+   tilt pops back on landing. That lean in/out is the text-placement flicker.
+   Keep spread frames flat in every state so nothing moves but the curl. */
+.book-spread .page.--left.--simple .page__frame,
+.book-spread .page.--right.--simple .page__frame {
+  transform: none;
+}
 .book-spread .page.--left {
   clip-path: polygon(0 1.2%,10% .85%,20% .95%,31% .7%,43% .85%,55% .65%,65% .85%,73% 1.1%,79% 1.45%,84% 1.95%,88% 2.55%,92% 3.4%,95% 4.35%,97.2% 5.15%,98.7% 5.72%,99.5% 5.94%,100% 5.98%,100% 99.55%,95% 99.5%,90% 99.42%,85% 99.31%,80% 99.22%,76% 99.18%,72% 99.21%,68% 99.29%,64% 99.41%,60% 99.54%,59.5% 99.35%,59% 99.56%,56% 99.66%,52% 99.72%,48% 99.74%,44% 99.7%,40% 99.62%,36% 99.54%,31% 99.48%,26% 99.44%,21% 99.43%,17% 99.46%,13% 99.52%,12.5% 99.31%,12% 99.53%,9% 99.58%,4% 99.61%,0 99.58%);
   box-shadow: inset -54px 0 58px rgba(49,24,9,.28),inset 8px 0 17px rgba(78,42,17,.08),inset 0 0 23px rgba(58,28,10,.12);
