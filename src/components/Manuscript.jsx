@@ -226,26 +226,6 @@ function BookSpread({ pages, flipBookRef, onFlip, onStateChange }) {
   )
 }
 
-function smoothBackwardLanding(controller) {
-  // page-flip rounds its animation index. On backward turns that compresses
-  // the center-to-right half of the curl and can reset the leaf before its
-  // landing is painted. Retain those frames and paint the completed leaf
-  // before allowing the library to replace it with the static spread.
-  const animation = controller?.render?.animation
-  const frames = animation?.frames
-  const finish = animation?.onAnimateEnd
-  if (!frames?.length || typeof finish !== 'function') return
-
-  const landingStart = Math.floor(frames.length * 0.46)
-  animation.frames = frames.flatMap((frame, index) => index < landingStart ? [frame] : [frame, frame])
-  animation.duration = animation.frames.length * animation.durationFrame
-
-  animation.onAnimateEnd = () => {
-    animation.frames[animation.frames.length - 1]()
-    requestAnimationFrame(() => requestAnimationFrame(finish))
-  }
-}
-
 function StarChart({ variant }) {
   return (
     <svg className="star-chart" viewBox="0 0 260 190" aria-label={`${variant} illustration`}>
@@ -462,10 +442,7 @@ export default function Manuscript({ open, book, onClose }) {
       // mirrored coordinate so the leaf completes its travel to the right.
       const bounds = pageFlip?.getBoundsRect?.()
       const controller = pageFlip?.getFlipController?.()
-      if (bounds && controller?.flip) {
-        controller.flip({ x: bounds.left + 10, y: 1 })
-        smoothBackwardLanding(controller)
-      }
+      if (bounds && controller?.flip) controller.flip({ x: bounds.left + 10, y: 1 })
       else pageFlip?.flipPrev('top')
     }
   }, [currentPage, pages.length, reader.kind])
