@@ -460,7 +460,7 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   pointer-events: none;
 }
 .book-page-block--left {
-  left: 0;
+  left: -6px;
   transform: translateY(-3px) scaleX(-1);
 }
 .book-page-block--left,
@@ -481,6 +481,7 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
 }
 .book-page-block--left {
   bottom: 21px;
+  width: 38px;
 }
 .book-page-block--left::before,
 .book-page-block--left::after,
