@@ -469,11 +469,11 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   box-shadow: inset 8px 0 11px rgba(29,16,7,.55),inset -4px 0 7px rgba(42,23,9,.42),0 3px 6px rgba(0,0,0,.4);
 }
 .book-page-block--right {
-  top: 7px;
-  bottom: 8px;
-  right: -8px;
-  width: 38px;
-  clip-path: polygon(0 .4%,80% 0,100% 2%,91% 17%,98% 34%,92% 51%,99% 68%,92% 84%,100% 99%,20% 100%,6% 94%,0 81%,7% 67%,1% 53%,6% 39%,0 25%,4% 12%);
+  top: 28px;
+  bottom: 24px;
+  right: -6px;
+  width: 34px;
+  clip-path: polygon(3% .5%,80% 0,100% 2%,93% 17%,98% 34%,94% 51%,99% 68%,93% 84%,100% 99%,14% 100%,10% 94%,8% 81%,9% 67%,6% 53%,7% 39%,4% 25%,5% 12%);
   background: linear-gradient(90deg,rgba(54,34,18,.62),rgba(171,143,93,.28) 28%,rgba(117,91,57,.2) 66%,rgba(44,25,11,.72)),repeating-linear-gradient(90deg,#b19767 0 1px,#6c5131 1px 2px,#9e8357 2px 3px,#5b4328 3px 4px);
   box-shadow: inset -8px 0 11px rgba(29,16,7,.55),inset 4px 0 7px rgba(42,23,9,.42),0 3px 6px rgba(0,0,0,.4);
 }
