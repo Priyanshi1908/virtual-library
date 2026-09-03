@@ -169,9 +169,9 @@ function createIncrementalEpubPaginator(text, firstEyebrow) {
   }
 }
 
-const Page = forwardRef(function Page({ page, number }, ref) {
+const Page = forwardRef(function Page({ page, number, side }, ref) {
   return (
-    <article className={`page page--${page.kind || 'text'}`} ref={ref}>
+    <article className={`page page--${page.kind || 'text'}${side ? ` --${side} --simple` : ''}`} ref={ref}>
       <div className="page__foxing" />
       <div className="page__frame">
         {page.eyebrow && <span className="page__eyebrow">{page.eyebrow}</span>}
@@ -224,44 +224,6 @@ function BookSpread({ pages, flipBookRef, onFlip, onStateChange }) {
       {renderedPages}
     </HTMLFlipBook>
   )
-}
-
-function addBackwardLeafFront(pageFlip, controller) {
-  const animation = controller?.render?.animation
-  const movingPage = controller?.flippingPage?.getElement?.()
-  const currentPage = pageFlip?.getPage?.(pageFlip.getCurrentPageIndex?.())?.getElement?.()
-  if (!animation?.frames?.length || !movingPage || !currentPage) return
-
-  const originalNodes = [...movingPage.childNodes].map((node) => node.cloneNode(true))
-  const frontNodes = [...currentPage.childNodes].map((node) => node.cloneNode(true))
-  const originalKind = [...movingPage.classList].find((name) => name.startsWith('page--'))
-  const frontKind = [...currentPage.classList].find((name) => name.startsWith('page--'))
-  let restored = false
-
-  const restoreDestinationFace = () => {
-    if (restored) return
-    restored = true
-    movingPage.replaceChildren(...originalNodes.map((node) => node.cloneNode(true)))
-    if (frontKind) movingPage.classList.remove(frontKind)
-    if (originalKind) movingPage.classList.add(originalKind)
-  }
-
-  movingPage.replaceChildren(...frontNodes)
-  if (originalKind) movingPage.classList.remove(originalKind)
-  if (frontKind) movingPage.classList.add(frontKind)
-
-  const frames = animation.frames
-  const midpoint = Math.floor(frames.length / 2)
-  animation.frames = frames.map((frame, index) => () => {
-    frame()
-    if (index >= midpoint) restoreDestinationFace()
-  })
-
-  const finish = animation.onAnimateEnd
-  animation.onAnimateEnd = () => {
-    restoreDestinationFace()
-    finish?.()
-  }
 }
 
 function StarChart({ variant }) {
@@ -345,9 +307,11 @@ export default function Manuscript({ open, book, onClose }) {
   const epubExtension = useRef(null)
   const flipBookRef = useRef(null)
   const bookFlipping = useRef(false)
+  const backwardTimer = useRef(null)
   const [reader, setReader] = useState({ status: 'idle', kind: 'static', pages: manuscriptPages })
   const [currentPage, setCurrentPage] = useState(0)
   const [turning, setTurning] = useState(null)
+  const [backwardTurn, setBackwardTurn] = useState(null)
   const closeReader = useCallback(() => { cue('close', .38); onClose() }, [onClose])
 
   useEffect(() => {
@@ -439,11 +403,14 @@ export default function Manuscript({ open, book, onClose }) {
   }, [book, open])
 
   useEffect(() => {
-    if (open) {
-      setCurrentPage(0)
-      setTurning(null)
-    }
+    window.clearTimeout(backwardTimer.current)
+    bookFlipping.current = false
+    setTurning(null)
+    setBackwardTurn(null)
+    if (open) setCurrentPage(0)
   }, [book, open])
+
+  useEffect(() => () => window.clearTimeout(backwardTimer.current), [])
 
   const pages = useMemo(() => reader.pages || [], [reader.pages])
 
@@ -476,18 +443,33 @@ export default function Manuscript({ open, book, onClose }) {
     const pageFlip = flipBookRef.current?.pageFlip()
     if (direction > 0) pageFlip?.flipNext('top')
     else {
-      // page-flip@2.0.7 starts flipPrev at a viewport-relative x=10, unlike
-      // flipNext which includes the renderer's left offset. Use the corrected
-      // mirrored coordinate so the leaf completes its travel to the right.
-      const bounds = pageFlip?.getBoundsRect?.()
-      const controller = pageFlip?.getFlipController?.()
-      if (bounds && controller?.flip) {
-        controller.flip({ x: bounds.left + 10, y: 1 })
-        addBackwardLeafFront(pageFlip, controller)
+      if (!pageFlip) return
+      bookFlipping.current = true
+      let completed = false
+      const complete = () => {
+        if (completed) return
+        completed = true
+        window.clearTimeout(backwardTimer.current)
+        pageFlip.turnToPrevPage()
+        setBackwardTurn(null)
+        setTurning(null)
+        bookFlipping.current = false
       }
-      else pageFlip?.flipPrev('top')
+      setBackwardTurn({
+        front: pages[currentPage],
+        back: pages[next + 1],
+        under: pages[next],
+        frontNumber: currentPage,
+        backNumber: next + 1,
+        underNumber: next,
+        complete,
+      })
+      window.clearTimeout(backwardTimer.current)
+      // The animation event performs the page swap after the landing frame is
+      // painted. This timeout is only a guard for browsers that suppress it.
+      backwardTimer.current = window.setTimeout(complete, 900)
     }
-  }, [currentPage, pages.length, reader.kind])
+  }, [currentPage, pages, reader.kind])
 
   const turnFromPageClick = useCallback((event) => {
     const bounds = event.currentTarget.getBoundingClientRect()
@@ -530,6 +512,26 @@ export default function Manuscript({ open, book, onClose }) {
             <i className="book-page-block book-page-block--left" aria-hidden="true" />
             <i className="book-page-block book-page-block--right" aria-hidden="true" />
             <BookSpread pages={pages} flipBookRef={flipBookRef} onFlip={onBookFlip} onStateChange={onBookStateChange} />
+            {backwardTurn && (
+              <div className="backward-turn" aria-hidden="true">
+                <div className="backward-turn__under">
+                  <Page page={backwardTurn.under} number={backwardTurn.underNumber} side="left" />
+                </div>
+                <div
+                  className="backward-turn__leaf"
+                  onAnimationEnd={(event) => {
+                    if (event.target === event.currentTarget) backwardTurn.complete()
+                  }}
+                >
+                  <div className="backward-turn__face backward-turn__face--front">
+                    <Page page={backwardTurn.front} number={backwardTurn.frontNumber} side="left" />
+                  </div>
+                  <div className="backward-turn__face backward-turn__face--back">
+                    <Page page={backwardTurn.back} number={backwardTurn.backNumber} side="right" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="manuscript__controls">
             <button onClick={() => moveBook(-1)} disabled={currentPage <= 0} aria-label="Previous pages"><kbd>A</kbd><span>Previous</span></button>
