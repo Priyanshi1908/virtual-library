@@ -461,7 +461,7 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
 }
 .book-page-block--left {
   left: 0;
-  transform: scaleX(-1);
+  transform: translateY(-3px) scaleX(-1);
 }
 .book-page-block--left,
 .book-page-block--right {
