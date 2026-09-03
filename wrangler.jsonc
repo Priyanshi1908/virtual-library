@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "virtual-library",
-  "account_id": "8e8d34fb7b682c2d53e85e8e4b71e7db",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-09-02"
 }
