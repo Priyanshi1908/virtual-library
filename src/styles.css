@@ -480,7 +480,7 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   right: 0;
 }
 .book-page-block--left {
-  bottom: 21px;
+  bottom: 13px;
   width: 38px;
 }
 .book-page-block--left::before,
