@@ -212,6 +212,7 @@ function BookSpread({ pages, flipBookRef, onFlip, onStateChange }) {
       maxShadowOpacity={0.58}
       flippingTime={760}
       showCover={false}
+      showPageCorners={false}
       mobileScrollSupport
       clickEventForward
       useMouseEvents
