@@ -213,9 +213,10 @@ function BookSpread({ pages, flipBookRef, onFlip, onStateChange }) {
       flippingTime={760}
       showCover={false}
       showPageCorners={false}
+      renderOnlyPageLengthChange
       mobileScrollSupport
       clickEventForward
-      useMouseEvents
+      useMouseEvents={false}
       swipeDistance={28}
       onFlip={onFlip}
       onChangeState={onStateChange}
@@ -428,13 +429,28 @@ export default function Manuscript({ open, book, onClose }) {
 
   const moveBook = useCallback((direction) => {
     if (reader.kind === 'pdf') return
+    if (bookFlipping.current) return
     const lastSpread = Math.max(0, Math.floor((pages.length - 1) / 2) * 2)
     const next = Math.max(0, Math.min(lastSpread, currentPage + direction * 2))
     if (next === currentPage) return
     cue('page', .38)
-    if (direction > 0) flipBookRef.current?.pageFlip()?.flipNext('top')
-    else flipBookRef.current?.pageFlip()?.flipPrev('top')
+    const pageFlip = flipBookRef.current?.pageFlip()
+    if (direction > 0) pageFlip?.flipNext('top')
+    else {
+      // page-flip@2.0.7 starts flipPrev at a viewport-relative x=10, unlike
+      // flipNext which includes the renderer's left offset. Use the corrected
+      // mirrored coordinate so the leaf completes its travel to the right.
+      const bounds = pageFlip?.getBoundsRect?.()
+      const controller = pageFlip?.getFlipController?.()
+      if (bounds && controller?.flip) controller.flip({ x: bounds.left + 10, y: 1 })
+      else pageFlip?.flipPrev('top')
+    }
   }, [currentPage, pages.length, reader.kind])
+
+  const turnFromPageClick = useCallback((event) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    moveBook(event.clientX < bounds.left + bounds.width / 2 ? -1 : 1)
+  }, [moveBook])
 
   const onBookFlip = useCallback((event) => {
     const pageIndex = Math.max(0, Number(event.data) || 0)
@@ -467,7 +483,7 @@ export default function Manuscript({ open, book, onClose }) {
       {reader.status === 'ready' && reader.kind === 'pdf' && <PdfSpread reader={reader} />}
       {reader.status === 'ready' && reader.kind !== 'pdf' && (
         <>
-          <div className="book-shell">
+          <div className="book-shell" onClick={turnFromPageClick}>
             <i className="book-page-block book-page-block--left" aria-hidden="true" />
             <i className="book-page-block book-page-block--right" aria-hidden="true" />
             <BookSpread pages={pages} flipBookRef={flipBookRef} onFlip={onBookFlip} onStateChange={onBookStateChange} />
