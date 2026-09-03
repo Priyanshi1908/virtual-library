@@ -432,8 +432,8 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   filter: drop-shadow(0 38px 44px rgba(0,0,0,.72));
 }
 .book-shell::before {
-  /* The leather binding sits beneath the text block.  Its upper edge begins
-     below the layered paper so it never reads as a band above the pages. */
+  /* Keep the leather binding beneath the visible leaves so its upper edge
+     does not read as a separate band above the pages. */
   inset: 9px -16px -17px;
   border: 1px solid rgba(157,104,49,.7);
   border-radius: 5px 7px 8px 6px;
@@ -476,16 +476,6 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   clip-path: polygon(0 .4%,80% 0,100% 2%,91% 17%,98% 34%,92% 51%,99% 68%,92% 84%,100% 99%,20% 100%,6% 94%,0 81%,7% 67%,1% 53%,6% 39%,0 25%,4% 12%);
   background: linear-gradient(90deg,rgba(54,34,18,.62),rgba(171,143,93,.28) 28%,rgba(117,91,57,.2) 66%,rgba(44,25,11,.72)),repeating-linear-gradient(90deg,#b19767 0 1px,#6c5131 1px 2px,#9e8357 2px 3px,#5b4328 3px 4px);
   box-shadow: inset -8px 0 11px rgba(29,16,7,.55),inset 4px 0 7px rgba(42,23,9,.42),0 3px 6px rgba(0,0,0,.4);
-}
-.book-page-block--top {
-  z-index: -1;
-  top: -3px;
-  left: 18px;
-  right: 18px;
-  height: 56px;
-  clip-path: polygon(0 4%,12% 1%,25% 4%,38% 2%,47.8% 4%,50% 58%,52.2% 4%,62% 2%,75% 4%,88% 1%,100% 4%,99.7% 51%,88% 48%,75% 52%,62% 48%,53% 52%,50% 100%,47% 52%,38% 48%,25% 52%,12% 48%,.3% 51%);
-  background: linear-gradient(90deg,rgba(49,29,13,.48),transparent 9% 91%,rgba(48,28,12,.52)),repeating-linear-gradient(0deg,#5a4228 0 1px,#a1885c 1px 2px,#705536 2px 3px,#b49a6b 3px 4px);
-  box-shadow: inset 0 8px 10px rgba(42,24,10,.28),0 -2px 5px rgba(0,0,0,.28);
 }
 .book-page-block--bottom {
   z-index: -1;
