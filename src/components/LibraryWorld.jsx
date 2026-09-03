@@ -629,9 +629,11 @@ function Candle({ position, rotation = [0, 0, 0], scale = 1, lightIntensity = 1.
         geometry on every wick. The old central billboard doubled the middle
         flame and floated visibly above the candle. */}
       {wicks.xs.map((x) => (
-        <GlowSpot key={x} position={[x, wicks.y, 0.03]} scale={wicks.glow} />
+        <mesh key={x} material={lanternGlowMaterial} position={[x, wicks.y, 0.03]} scale={wicks.glow}>
+          <sphereGeometry args={[0.12, 10, 8]} />
+        </mesh>
       ))}
-      {withLight && <FlickerLight position={[0, variant === 3 ? 0.78 : 0.38, 0.03]} color="#ff8a2a" intensity={lightIntensity} distance={4.6} decay={2} />}
+      {withLight && <pointLight position={[0, variant === 3 ? 0.78 : 0.38, 0.03]} color="#ff8a2a" intensity={lightIntensity} distance={4.6} decay={2} castShadow={false} />}
     </group>
   )
 }
