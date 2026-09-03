@@ -469,7 +469,6 @@ export default function Manuscript({ open, book, onClose }) {
           <div className="book-shell">
             <i className="book-page-block book-page-block--left" aria-hidden="true" />
             <i className="book-page-block book-page-block--right" aria-hidden="true" />
-            <i className="book-page-block book-page-block--bottom" aria-hidden="true" />
             <BookSpread pages={pages} flipBookRef={flipBookRef} onFlip={onBookFlip} onStateChange={onBookStateChange} />
           </div>
           <div className="manuscript__controls">
