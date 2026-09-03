@@ -169,9 +169,9 @@ function createIncrementalEpubPaginator(text, firstEyebrow) {
   }
 }
 
-const Page = forwardRef(function Page({ page, number, side }, ref) {
+const Page = forwardRef(function Page({ page, number }, ref) {
   return (
-    <article className={`page page--${page.kind || 'text'}${side ? ` --${side} --simple` : ''}`} ref={ref}>
+    <article className={`page page--${page.kind || 'text'}`} ref={ref}>
       <div className="page__foxing" />
       <div className="page__frame">
         {page.eyebrow && <span className="page__eyebrow">{page.eyebrow}</span>}
@@ -307,11 +307,9 @@ export default function Manuscript({ open, book, onClose }) {
   const epubExtension = useRef(null)
   const flipBookRef = useRef(null)
   const bookFlipping = useRef(false)
-  const backwardTimer = useRef(null)
   const [reader, setReader] = useState({ status: 'idle', kind: 'static', pages: manuscriptPages })
   const [currentPage, setCurrentPage] = useState(0)
   const [turning, setTurning] = useState(null)
-  const [backwardTurn, setBackwardTurn] = useState(null)
   const closeReader = useCallback(() => { cue('close', .38); onClose() }, [onClose])
 
   useEffect(() => {
@@ -403,14 +401,11 @@ export default function Manuscript({ open, book, onClose }) {
   }, [book, open])
 
   useEffect(() => {
-    window.clearTimeout(backwardTimer.current)
-    bookFlipping.current = false
-    setTurning(null)
-    setBackwardTurn(null)
-    if (open) setCurrentPage(0)
+    if (open) {
+      setCurrentPage(0)
+      setTurning(null)
+    }
   }, [book, open])
-
-  useEffect(() => () => window.clearTimeout(backwardTimer.current), [])
 
   const pages = useMemo(() => reader.pages || [], [reader.pages])
 
@@ -442,34 +437,8 @@ export default function Manuscript({ open, book, onClose }) {
     setTurning(direction > 0 ? 'is-turning-forward' : 'is-turning-back')
     const pageFlip = flipBookRef.current?.pageFlip()
     if (direction > 0) pageFlip?.flipNext('top')
-    else {
-      if (!pageFlip) return
-      bookFlipping.current = true
-      let completed = false
-      const complete = () => {
-        if (completed) return
-        completed = true
-        window.clearTimeout(backwardTimer.current)
-        pageFlip.turnToPrevPage()
-        setBackwardTurn(null)
-        setTurning(null)
-        bookFlipping.current = false
-      }
-      setBackwardTurn({
-        front: pages[currentPage],
-        back: pages[next + 1],
-        under: pages[next],
-        frontNumber: currentPage,
-        backNumber: next + 1,
-        underNumber: next,
-        complete,
-      })
-      window.clearTimeout(backwardTimer.current)
-      // The animation event performs the page swap after the landing frame is
-      // painted. This timeout is only a guard for browsers that suppress it.
-      backwardTimer.current = window.setTimeout(complete, 900)
-    }
-  }, [currentPage, pages, reader.kind])
+    else pageFlip?.flipPrev('top')
+  }, [currentPage, pages.length, reader.kind])
 
   const turnFromPageClick = useCallback((event) => {
     const bounds = event.currentTarget.getBoundingClientRect()
@@ -512,26 +481,6 @@ export default function Manuscript({ open, book, onClose }) {
             <i className="book-page-block book-page-block--left" aria-hidden="true" />
             <i className="book-page-block book-page-block--right" aria-hidden="true" />
             <BookSpread pages={pages} flipBookRef={flipBookRef} onFlip={onBookFlip} onStateChange={onBookStateChange} />
-            {backwardTurn && (
-              <div className="backward-turn" aria-hidden="true">
-                <div className="backward-turn__under">
-                  <Page page={backwardTurn.under} number={backwardTurn.underNumber} side="left" />
-                </div>
-                <div
-                  className="backward-turn__leaf"
-                  onAnimationEnd={(event) => {
-                    if (event.target === event.currentTarget) backwardTurn.complete()
-                  }}
-                >
-                  <div className="backward-turn__face backward-turn__face--front">
-                    <Page page={backwardTurn.front} number={backwardTurn.frontNumber} side="left" />
-                  </div>
-                  <div className="backward-turn__face backward-turn__face--back">
-                    <Page page={backwardTurn.back} number={backwardTurn.backNumber} side="right" />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           <div className="manuscript__controls">
             <button onClick={() => moveBook(-1)} disabled={currentPage <= 0} aria-label="Previous pages"><kbd>A</kbd><span>Previous</span></button>
