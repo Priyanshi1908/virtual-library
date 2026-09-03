@@ -307,6 +307,8 @@ export default function Manuscript({ open, book, onClose }) {
   const epubExtension = useRef(null)
   const flipBookRef = useRef(null)
   const bookFlipping = useRef(false)
+  const dragToken = useRef(0)
+  const pendingEpub = useRef(null)
   const [reader, setReader] = useState({ status: 'idle', kind: 'static', pages: manuscriptPages })
   const [currentPage, setCurrentPage] = useState(0)
   const [turning, setTurning] = useState(null)
@@ -404,27 +406,74 @@ export default function Manuscript({ open, book, onClose }) {
     if (open) {
       setCurrentPage(0)
       setTurning(null)
+      dragToken.current += 1
+      pendingEpub.current = null
     }
   }, [book, open])
 
   const pages = useMemo(() => reader.pages || [], [reader.pages])
+
+  const applyEpubPages = useCallback((contentPages, hasMore) => {
+    setReader((current) => {
+      if (current.kind !== 'epub') return current
+      const nextPages = [
+        current.pages[0],
+        ...contentPages,
+        ...(!hasMore ? [{ kind: 'cover', eyebrow: 'Finis', title: current.title, subtitle: 'Return this volume to its shelf' }] : []),
+      ]
+      return { ...current, pages: nextPages, hasMore }
+    })
+  }, [])
 
   const extendEpub = useCallback((pageIndex) => {
     const paginator = epubPaginator.current
     if (!paginator?.hasMore() || epubExtension.current || pageIndex < paginator.count - 5) return
     epubExtension.current = paginator.ensure(paginator.count + 12)
       .then((contentPages) => {
-        setReader((current) => {
-          if (current.kind !== 'epub') return current
-          const nextPages = [
-            current.pages[0],
-            ...contentPages,
-            ...(!paginator.hasMore() ? [{ kind: 'cover', eyebrow: 'Finis', title: current.title, subtitle: 'Return this volume to its shelf' }] : []),
-          ]
-          return { ...current, pages: nextPages, hasMore: paginator.hasMore() }
-        })
+        // Swapping the page list while a leaf is mid-flight tears the
+        // animation down (blank book, snapped shapes, late content pop).
+        // Stage the batch and apply it once the book is idle instead.
+        if (bookFlipping.current) pendingEpub.current = { contentPages, hasMore: paginator.hasMore() }
+        else applyEpubPages(contentPages, paginator.hasMore())
       })
       .finally(() => { epubExtension.current = null })
+  }, [applyEpubPages])
+
+  const scriptedFlipPrev = useCallback((pageFlip) => {
+    // page-flip's programmatic flip() opens a backward turn with the leaf
+    // swung far off-book, so the curl pops in instead of peeling smoothly.
+    // A scripted corner drag mirrors flipNext('top'): same fold solver, same
+    // near-top path, just traveling left edge to right edge.
+    const block = pageFlip?.getUI?.()?.getDistElement?.()
+    const width = block?.offsetWidth || 0
+    const height = block?.offsetHeight || 0
+    if (!width || !height || typeof pageFlip.startUserTouch !== 'function') {
+      pageFlip?.flipPrev('top')
+      return
+    }
+    const token = ++dragToken.current
+    // Grab just inside the leaf: outside the page the fold solver swings the
+    // corner hundreds of pixels off-book (the old pop-in/flicker).
+    const fromX = 30
+    const toX = width - 30
+    const y = 40
+    const steps = 26
+    const stepTime = 24
+    pageFlip.startUserTouch({ x: fromX, y })
+    let step = 0
+    const advance = () => {
+      if (token !== dragToken.current) return
+      step += 1
+      const progress = Math.min(1, step / steps)
+      const x = fromX + (toX - fromX) * progress
+      if (progress < 1) {
+        pageFlip.userMove({ x, y }, false)
+        window.setTimeout(advance, stepTime)
+      } else {
+        pageFlip.userStop({ x: toX, y }, false)
+      }
+    }
+    window.setTimeout(advance, stepTime)
   }, [])
 
   const moveBook = useCallback((direction) => {
@@ -437,8 +486,8 @@ export default function Manuscript({ open, book, onClose }) {
     setTurning(direction > 0 ? 'is-turning-forward' : 'is-turning-back')
     const pageFlip = flipBookRef.current?.pageFlip()
     if (direction > 0) pageFlip?.flipNext('top')
-    else pageFlip?.flipPrev('top')
-  }, [currentPage, pages.length, reader.kind])
+    else if (pageFlip) scriptedFlipPrev(pageFlip)
+  }, [currentPage, pages.length, reader.kind, scriptedFlipPrev])
 
   const turnFromPageClick = useCallback((event) => {
     const bounds = event.currentTarget.getBoundingClientRect()
@@ -452,9 +501,16 @@ export default function Manuscript({ open, book, onClose }) {
   }, [extendEpub])
 
   const onBookStateChange = useCallback((event) => {
-    bookFlipping.current = event.data === 'flipping'
-    if (event.data === 'read') setTurning(null)
-  }, [])
+    bookFlipping.current = event.data !== 'read'
+    if (event.data === 'read') {
+      setTurning(null)
+      if (pendingEpub.current) {
+        const staged = pendingEpub.current
+        pendingEpub.current = null
+        applyEpubPages(staged.contentPages, staged.hasMore)
+      }
+    }
+  }, [applyEpubPages])
 
   useEffect(() => {
     const onKey = (event) => {
