@@ -469,13 +469,28 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   box-shadow: inset 8px 0 11px rgba(29,16,7,.55),inset -4px 0 7px rgba(42,23,9,.42),0 3px 6px rgba(0,0,0,.4);
 }
 .book-page-block--right {
-  top: 28px;
+  top: 18px;
   bottom: 24px;
   right: -6px;
-  width: 34px;
-  clip-path: polygon(3% .5%,80% 0,100% 2%,93% 17%,98% 34%,94% 51%,99% 68%,93% 84%,100% 99%,14% 100%,10% 94%,8% 81%,9% 67%,6% 53%,7% 39%,4% 25%,5% 12%);
-  background: linear-gradient(90deg,rgba(54,34,18,.62),rgba(171,143,93,.28) 28%,rgba(117,91,57,.2) 66%,rgba(44,25,11,.72)),repeating-linear-gradient(90deg,#b19767 0 1px,#6c5131 1px 2px,#9e8357 2px 3px,#5b4328 3px 4px);
-  box-shadow: inset -8px 0 11px rgba(29,16,7,.55),inset 4px 0 7px rgba(42,23,9,.42),0 3px 6px rgba(0,0,0,.4);
+  width: 42px;
+  clip-path: polygon(0 0,15% .5%,29% 1.1%,43% 1.8%,58% 2.7%,72% 3.5%,86% 4.2%,100% 5.2%,94% 17%,99% 34%,93% 51%,98% 68%,92% 84%,100% 99%,16% 100%,11% 94%,7% 81%,10% 67%,5% 53%,9% 39%,4% 25%,8% 12%);
+  background: linear-gradient(90deg,rgba(45,24,10,.72),rgba(180,147,92,.2) 24%,rgba(195,164,105,.34) 56%,rgba(63,38,18,.7)),repeating-linear-gradient(0deg,#5e4329 0 1px,#a58a5b 1px 2px,#745536 2px 3px,#b69b69 3px 4px,#80603d 4px 5px);
+  box-shadow: inset 10px 0 12px rgba(35,18,7,.52),inset -5px 0 8px rgba(38,21,9,.46),3px 4px 8px rgba(0,0,0,.48);
+}
+.book-page-block--right::before,
+.book-page-block--right::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.book-page-block--right::before {
+  background: repeating-linear-gradient(0deg,transparent 0 6px,rgba(239,210,148,.28) 6px 7px,transparent 7px 13px);
+  opacity: .72;
+}
+.book-page-block--right::after {
+  background: linear-gradient(90deg,rgba(43,22,8,.58),transparent 28% 72%,rgba(35,19,8,.34)),radial-gradient(ellipse at 22% 18%,rgba(235,201,132,.24),transparent 24%),radial-gradient(ellipse at 74% 61%,rgba(45,25,11,.28),transparent 31%);
+  box-shadow: inset 2px 0 2px rgba(224,190,123,.18);
 }
 .book-spread.stf__parent { overflow: hidden !important; }
 .book-spread .stf__block { overflow: hidden !important; }
@@ -494,8 +509,8 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   box-shadow: inset -54px 0 58px rgba(49,24,9,.28),inset 8px 0 17px rgba(78,42,17,.08),inset 0 0 23px rgba(58,28,10,.12);
 }
 .book-spread .page.--right {
-  clip-path: polygon(0 6.2%,16% 1.8%,32% 1%,49% 1.5%,66% .6%,84% 1.1%,100% .8%,100% 98.5%,85% 99.1%,68% 98.7%,51% 99.4%,34% 98.9%,17% 99.6%,0 99.7%);
-  box-shadow: inset 54px 0 58px rgba(49,24,9,.28),inset -8px 0 17px rgba(78,42,17,.08),inset 0 0 23px rgba(58,28,10,.12);
+  clip-path: polygon(0 6.2%,16% 1.8%,32% 1%,49% 1.5%,66% .6%,84% 1.1%,98% .9%,100% 1.5%,99.35% 4.5%,100% 8%,99.5% 12.5%,100% 18%,99.4% 24%,100% 31%,99.55% 42%,100% 54%,99.45% 67%,100% 80%,99.6% 90%,100% 98.5%,85% 99.1%,68% 98.7%,51% 99.4%,34% 98.9%,17% 99.6%,0 99.7%);
+  box-shadow: inset 54px 0 58px rgba(49,24,9,.28),inset -11px 0 14px rgba(58,29,11,.2),inset 0 0 23px rgba(58,28,10,.12);
 }
 .book-spread .page::before {
   clip-path: none;
