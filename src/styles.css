@@ -473,9 +473,9 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   bottom: 24px;
   right: 0;
   width: 32px;
-  clip-path: polygon(0 0,8% 0,8% .4%,20% .4%,20% .85%,29% .85%,29% 1.35%,40% 1.35%,40% 1.85%,48% 1.85%,48% 2.3%,61% 2.3%,61% 2.95%,70% 2.95%,70% 3.35%,81% 3.35%,81% 3.9%,91% 3.9%,91% 4.35%,100% 4.8%,94% 17%,99% 34%,93% 51%,98% 68%,92% 84%,100% 99%,16% 100%,10% 96%,15% 92%,6% 88%,12% 83%,4% 78%,11% 72%,3% 67%,9% 61%,2% 56%,12% 50%,5% 45%,14% 39%,4% 34%,11% 28%,3% 23%,10% 17%,5% 12%,9% 8%);
+  clip-path: polygon(0 0,7% 0,7% .32%,15% .32%,15% .68%,24% .68%,24% 1.05%,32% 1.05%,32% 1.42%,41% 1.42%,41% 1.85%,49% 1.85%,49% 2.18%,58% 2.18%,58% 2.62%,67% 2.62%,67% 3%,75% 3%,75% 3.32%,84% 3.32%,84% 3.72%,92% 3.72%,92% 4.12%,100% 4.65%,94% 17%,99% 34%,93% 51%,98% 68%,92% 84%,100% 99%,16% 100%,10% 96%,15% 92%,6% 88%,12% 83%,4% 78%,11% 72%,3% 67%,9% 61%,2% 56%,12% 50%,5% 45%,14% 39%,4% 34%,11% 28%,3% 23%,10% 17%,5% 12%,9% 8%);
   background-color: #bd965f;
-  background-image: linear-gradient(90deg,rgba(34,15,5,.62),transparent 13% 84%,rgba(39,18,7,.64)),repeating-linear-gradient(90deg,rgba(48,24,9,.68) 0 1px,rgba(158,112,65,.3) 1px 2px,rgba(251,215,146,.38) 2px 3px,rgba(105,69,38,.46) 3px 4px),url('/assets/textures/antique-rag-paper/antique_rag_paper_diff_1k.webp');
+  background-image: linear-gradient(90deg,rgba(34,15,5,.62),transparent 13% 84%,rgba(39,18,7,.64)),repeating-linear-gradient(90deg,rgba(48,24,9,.7) 0 .7px,rgba(158,112,65,.3) .7px 1.5px,rgba(251,215,146,.38) 1.5px 2.3px,rgba(105,69,38,.46) 2.3px 3px),url('/assets/textures/antique-rag-paper/antique_rag_paper_diff_1k.webp');
   background-size: auto,auto,150px 100%;
   background-blend-mode: multiply,multiply;
   box-shadow: inset 8px 0 10px rgba(34,17,7,.5),inset -4px 0 7px rgba(35,19,8,.46),3px 3px 7px rgba(0,0,0,.44);
@@ -489,7 +489,7 @@ kbd { min-width: 21px; display: inline-grid; place-items: center; padding: 3px 5
   pointer-events: none;
 }
 .book-page-block--right::before {
-  background: linear-gradient(90deg,rgba(25,10,3,.78),rgba(86,40,13,.54) 6%,rgba(172,103,43,.2) 11%,transparent 15%),repeating-linear-gradient(90deg,rgba(246,205,132,.16) 0 1px,transparent 1px 3px,rgba(31,13,4,.54) 3px 4px);
+  background: linear-gradient(90deg,rgba(25,10,3,.78),rgba(86,40,13,.54) 6%,rgba(172,103,43,.2) 11%,transparent 15%),repeating-linear-gradient(90deg,rgba(246,205,132,.16) 0 .7px,transparent .7px 2.3px,rgba(31,13,4,.54) 2.3px 3px);
   opacity: .84;
 }
 .book-page-block--right::after {
