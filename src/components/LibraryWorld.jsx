@@ -37,9 +37,6 @@ const HALL_TEXTURES = {
   floorArm: '/assets/textures/monastery-stone-floor/monastery_stone_floor_arm_1k.jpg',
   floorNormal: '/assets/textures/monastery-stone-floor/monastery_stone_floor_nor_gl_1k.jpg',
   rugMap: '/assets/textures/antique-runner/antique-library-runner.png',
-  ceilingMap: '/assets/textures/old-planks-02/old_planks_02_diff_1k.jpg',
-  ceilingArm: '/assets/textures/old-planks-02/old_planks_02_arm_1k.jpg',
-  ceilingNormal: '/assets/textures/old-planks-02/old_planks_02_nor_gl_1k.jpg',
 }
 
 const wood = new THREE.MeshStandardMaterial({ color: '#4a2818', roughness: 0.76, metalness: 0.01 })
@@ -112,6 +109,250 @@ const hingeStudGeometry = new THREE.SphereGeometry(0.07, 12, 12)
 const shelfPillarGeometry = new THREE.CylinderGeometry(0.13, 0.17, 1, 12)
 const shelfCapitalGeometry = new THREE.CylinderGeometry(0.24, 0.16, 0.3, 12)
 const vaultBossGeometry = new THREE.DodecahedronGeometry(0.3, 0)
+// Enchanted glass vault: the Gothic silhouette stays, but the old-plank infill
+// becomes glazing so the night sky reads straight through the roof.
+// Unlit dark tint: physical glass reflected the bright room environment and
+// turned the whole vault milky grey. A basic tint stays transparent.
+const glassVaultMaterial = new THREE.MeshBasicMaterial({
+  color: '#101c2c',
+  transparent: true,
+  opacity: 0.22,
+  side: THREE.DoubleSide,
+  depthWrite: false,
+  fog: false,
+})
+let nightSkyTexture = null
+function getNightSkyTexture() {
+  if (nightSkyTexture) return nightSkyTexture
+  const canvas = document.createElement('canvas')
+  canvas.width = 2048
+  canvas.height = 1024
+  const context = canvas.getContext('2d')
+  const gradient = context.createLinearGradient(0, 0, 0, canvas.height)
+  gradient.addColorStop(0, '#010208')
+  gradient.addColorStop(0.38, '#0b1a33')
+  gradient.addColorStop(0.62, '#0a1428')
+  gradient.addColorStop(1, '#010208')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  // Nebula washes: deep indigo, teal, violet and a breath of rose.
+  const nebulae = [
+    [0.16, 0.34, 260, '80,100,200', 0.10], [0.30, 0.52, 210, '60,160,180', 0.08],
+    [0.44, 0.30, 240, '140,90,200', 0.09], [0.58, 0.55, 280, '70,110,190', 0.10],
+    [0.70, 0.32, 200, '200,110,150', 0.05], [0.82, 0.50, 250, '60,150,170', 0.08],
+    [0.08, 0.60, 190, '120,80,190', 0.07], [0.93, 0.66, 210, '80,120,210', 0.08],
+    [0.50, 0.70, 230, '50,90,170', 0.07], [0.36, 0.18, 170, '150,100,210', 0.06],
+  ]
+  nebulae.forEach(([fx, fy, radius, tint, alpha]) => {
+    const x = fx * canvas.width
+    const y = fy * canvas.height
+    const wash = context.createRadialGradient(x, y, 0, x, y, radius)
+    wash.addColorStop(0, `rgba(${tint},${alpha})`)
+    wash.addColorStop(1, `rgba(${tint},0)`)
+    context.fillStyle = wash
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+  })
+  // Milky Way: a soft diagonal band of light across the vault.
+  context.save()
+  context.translate(canvas.width / 2, canvas.height / 2)
+  context.rotate(-0.42)
+  for (const [width, alpha] of [[300, 0.028], [210, 0.04], [130, 0.055]]) {
+    context.fillStyle = `rgba(150,180,230,${alpha})`
+    context.fillRect(-canvas.width, -width / 2, canvas.width * 2, width)
+  }
+  // Dark dust lanes rifting the band.
+  for (let i = 0; i < 90; i += 1) {
+    const x = -canvas.width + ((i * 673.7) % (canvas.width * 2))
+    const y = ((i * 131.3) % 130) - 65
+    const radius = 14 + (i % 7) * 9
+    const lane = context.createRadialGradient(x, y, 0, x, y, radius)
+    lane.addColorStop(0, 'rgba(2,3,8,0.35)')
+    lane.addColorStop(1, 'rgba(2,3,8,0)')
+    context.fillStyle = lane
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+  }
+  // Dense faint star dust packed along the band.
+  for (let i = 0; i < 2200; i += 1) {
+    const x = -canvas.width + ((i * 389.13) % (canvas.width * 2))
+    const spread = ((i * 211.7) % 200) - 100
+    const y = spread * (0.5 + (i % 5) / 9)
+    context.fillStyle = `rgba(220,232,255,${0.12 + (i % 7) * 0.05})`
+    context.fillRect(x, y, 1.1, 1.1)
+  }
+  context.restore()
+  // Main star field with real magnitude spread and color temperature.
+  for (let i = 0; i < 3000; i += 1) {
+    const x = (i * 197.13 + 31.7) % canvas.width
+    const y = (i * 121.77 + 17.3) % canvas.height
+    const tier = i % 12
+    const radius = tier === 0 ? 2.1 : tier < 3 ? 1.4 : tier < 6 ? 0.9 : 0.5
+    const alpha = tier === 0 ? 1 : tier < 3 ? 0.85 : tier < 6 ? 0.55 : 0.32
+    const tint = i % 29 === 0 ? '170,200,255' : i % 37 === 0 ? '255,228,185' : i % 101 === 0 ? '255,170,150' : '235,242,255'
+    context.fillStyle = `rgba(${tint},${alpha})`
+    context.beginPath()
+    context.arc(x, y, radius, 0, Math.PI * 2)
+    context.fill()
+    if (tier === 0) {
+      // Diffraction spikes on the brightest anchors.
+      context.strokeStyle = `rgba(${tint},0.55)`
+      context.lineWidth = 1
+      const spike = 9 + (i % 5) * 2
+      context.beginPath()
+      context.moveTo(x - spike, y)
+      context.lineTo(x + spike, y)
+      context.moveTo(x, y - spike)
+      context.lineTo(x, y + spike)
+      context.stroke()
+      context.fillStyle = `rgba(${tint},0.18)`
+      context.beginPath()
+      context.arc(x, y, radius * 3.4, 0, Math.PI * 2)
+      context.fill()
+    } else if (tier < 3) {
+      context.fillStyle = `rgba(${tint},0.16)`
+      context.beginPath()
+      context.arc(x, y, radius * 2.6, 0, Math.PI * 2)
+      context.fill()
+    }
+  }
+  // Whisper-thin constellation lines between a few bright anchors.
+  context.strokeStyle = 'rgba(180,210,255,0.28)'
+  context.lineWidth = 1
+  const constellations = [
+    [[0.22, 0.3], [0.26, 0.26], [0.30, 0.29], [0.33, 0.24], [0.36, 0.27]],
+    [[0.60, 0.38], [0.64, 0.34], [0.67, 0.38], [0.71, 0.33]],
+    [[0.78, 0.55], [0.81, 0.51], [0.84, 0.55], [0.83, 0.60], [0.79, 0.60]],
+  ]
+  constellations.forEach((points) => {
+    context.beginPath()
+    points.forEach(([fx, fy], index) => {
+      const x = fx * canvas.width
+      const y = fy * canvas.height
+      if (index === 0) context.moveTo(x, y)
+      else context.lineTo(x, y)
+    })
+    context.stroke()
+    points.forEach(([fx, fy]) => {
+      context.fillStyle = 'rgba(240,246,255,0.95)'
+      context.beginPath()
+      context.arc(fx * canvas.width, fy * canvas.height, 2, 0, Math.PI * 2)
+      context.fill()
+    })
+  })
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
+  nightSkyTexture = texture
+  return texture
+}
+let moonTexture = null
+function getMoonTexture() {
+  if (moonTexture) return moonTexture
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#e9eff3'
+  context.beginPath()
+  context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+  context.fill()
+  // Maria: soft grey-blue plains.
+  for (let i = 0; i < 12; i += 1) {
+    const x = size / 2 + (((i * 71.3) % 150) - 75)
+    const y = size / 2 + (((i * 47.7) % 150) - 75)
+    const radius = 14 + (i % 4) * 10
+    const maria = context.createRadialGradient(x, y, 0, x, y, radius)
+    maria.addColorStop(0, 'rgba(150,165,185,0.35)')
+    maria.addColorStop(1, 'rgba(150,165,185,0)')
+    context.fillStyle = maria
+    context.beginPath()
+    context.arc(x, y, radius, 0, Math.PI * 2)
+    context.fill()
+  }
+  // Craters: dark rim, bright floor.
+  for (let i = 0; i < 46; i += 1) {
+    const x = (i * 53.7 + 19) % size
+    const y = (i * 91.3 + 33) % size
+    const dx = x - size / 2
+    const dy = y - size / 2
+    if (Math.hypot(dx, dy) > size / 2 - 8) continue
+    const radius = 2 + (i % 5) * 1.6
+    context.strokeStyle = 'rgba(120,132,150,0.5)'
+    context.lineWidth = 1.2
+    context.beginPath()
+    context.arc(x, y, radius, 0, Math.PI * 2)
+    context.stroke()
+    context.fillStyle = 'rgba(255,255,255,0.28)'
+    context.beginPath()
+    context.arc(x - radius * 0.2, y - radius * 0.2, radius * 0.55, 0, Math.PI * 2)
+    context.fill()
+  }
+  // Limb darkening so the disc sits round in the sky.
+  const limb = context.createRadialGradient(size / 2, size / 2, size * 0.28, size / 2, size / 2, size / 2)
+  limb.addColorStop(0, 'rgba(0,0,20,0)')
+  limb.addColorStop(1, 'rgba(10,15,35,0.30)')
+  context.fillStyle = limb
+  context.beginPath()
+  context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+  context.fill()
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
+  moonTexture = texture
+  return texture
+}
+let skyCloudTexture = null
+function getSkyCloudTexture() {
+  if (skyCloudTexture) return skyCloudTexture
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 256
+  const context = canvas.getContext('2d')
+  context.clearRect(0, 0, canvas.width, canvas.height)
+  for (let i = 0; i < 52; i += 1) {
+    const x = (i * 97.3 + 23) % canvas.width
+    const y = canvas.height * 0.5 + (((i * 57.7) % 120) - 60)
+    const radius = 22 + (i % 6) * 12
+    const puff = context.createRadialGradient(x, y, 0, x, y, radius)
+    puff.addColorStop(0, `rgba(190,210,235,${0.10 + (i % 4) * 0.03})`)
+    puff.addColorStop(1, 'rgba(190,210,235,0)')
+    context.fillStyle = puff
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.needsUpdate = true
+  skyCloudTexture = texture
+  return texture
+}
+let beamTexture = null
+function getBeamTexture() {
+  if (beamTexture) return beamTexture
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 256
+  const context = canvas.getContext('2d')
+  const vertical = context.createLinearGradient(0, 0, 0, canvas.height)
+  vertical.addColorStop(0, 'rgba(190,215,240,0.85)')
+  vertical.addColorStop(0.6, 'rgba(170,200,235,0.28)')
+  vertical.addColorStop(1, 'rgba(170,200,235,0)')
+  context.fillStyle = vertical
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.globalCompositeOperation = 'destination-in'
+  const horizontal = context.createLinearGradient(0, 0, canvas.width, 0)
+  horizontal.addColorStop(0, 'rgba(0,0,0,0)')
+  horizontal.addColorStop(0.25, 'rgba(0,0,0,1)')
+  horizontal.addColorStop(0.75, 'rgba(0,0,0,1)')
+  horizontal.addColorStop(1, 'rgba(0,0,0,0)')
+  context.fillStyle = horizontal
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
+  beamTexture = texture
+  return texture
+}
 const HALL_HALF_WIDTH = 23.5
 const VAULT_HALF_WIDTH = 23.15
 const TALL_LADDER_CENTER_Y = 6.72
@@ -351,11 +592,23 @@ function Candle({ position, rotation = [0, 0, 0], scale = 1, lightIntensity = 1.
     })
     return clone
   }, [scene, variant])
+  // Wick tips measured from the holder geometry so every candle radiates:
+  // variant 1 burns a single wick, variant 2 three, variant 3 five.
+  const wicks = useMemo(() => {
+    if (variant === 3) return { y: 0.78, xs: [-0.172, -0.088, 0, 0.087, 0.172], glow: 0.55 }
+    if (variant === 2) return { y: 0.38, xs: [-0.106, 0, 0.106], glow: 0.62 }
+    return { y: 0.4, xs: [0], glow: 0.95 }
+  }, [variant])
   return (
     <group position={position} rotation={rotation} scale={scale}>
       <primitive object={candleModel} />
-      <mesh material={flameMaterial} position={[0, variant === 3 ? 0.8 : 0.4, 0.03]} scale={[0.6, 1, 0.6]}><sphereGeometry args={[0.045, 8, 6]} /></mesh>
-      {withLight && <pointLight position={[0, variant === 3 ? 0.78 : 0.38, 0.03]} color="#ff8a2a" intensity={lightIntensity} distance={4.6} decay={2} castShadow={false} />}
+      {/* No FlameSpot here: the holder model ships its own emissive flame
+        geometry on every wick. The old central billboard doubled the middle
+        flame and floated visibly above the candle. */}
+      {wicks.xs.map((x) => (
+        <GlowSpot key={x} position={[x, wicks.y, 0.03]} scale={wicks.glow} />
+      ))}
+      {withLight && <FlickerLight position={[0, variant === 3 ? 0.78 : 0.38, 0.03]} color="#ff8a2a" intensity={lightIntensity} distance={4.6} decay={2} />}
     </group>
   )
 }
@@ -1200,6 +1453,292 @@ function CozyReadingNook() {
   )
 }
 
+// Bewitched-ceiling night sky: far dome with Milky Way and constellations,
+// a twinkling parallax star layer, cratered moon, aurora veil, drifting
+// moonlit clouds, periodic shooting stars and moonbeams pouring through the
+// glass. Animation rides the existing candle-flicker render wake (demand
+// frameloop), so it costs no extra wake budget of its own.
+const TWINKLE_VERTEX = `
+  attribute float aScale;
+  attribute float aPhase;
+  attribute vec3 aColor;
+  varying vec3 vColor;
+  varying float vTwinkle;
+  uniform float uTime;
+  void main() {
+    vColor = aColor;
+    float tw = 0.55 + 0.45 * sin(uTime * (1.1 + fract(aPhase) * 1.9) + aPhase * 17.0);
+    vTwinkle = tw;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aScale * (0.6 + 0.4 * tw) * (260.0 / max(1.0, -mv.z));
+    gl_Position = projectionMatrix * mv;
+  }
+`
+const TWINKLE_FRAGMENT = `
+  varying vec3 vColor;
+  varying float vTwinkle;
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d = length(uv) * 2.0;
+    float disc = smoothstep(1.0, 0.12, d);
+    float glow = pow(max(0.0, 1.0 - d), 2.0) * 0.55;
+    float a = (disc + glow) * (0.45 + 0.55 * vTwinkle);
+    if (a < 0.012) discard;
+    gl_FragColor = vec4(vColor * (0.72 + 0.65 * vTwinkle), a);
+  }
+`
+const AURORA_VERTEX = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+const AURORA_FRAGMENT = `
+  uniform float uTime;
+  varying vec2 vUv;
+  void main() {
+    float x = vUv.x * 6.0;
+    float w1 = sin(x * 2.1 + uTime * 0.32 + sin(x * 1.3 - uTime * 0.21) * 1.2);
+    float w2 = sin(x * 3.7 - uTime * 0.26 + 1.7);
+    float rays = pow(0.5 + 0.5 * (w1 * 0.6 + w2 * 0.4), 2.2);
+    float vert = smoothstep(0.0, 0.28, vUv.y) * (1.0 - smoothstep(0.42, 1.0, vUv.y));
+    float horiz = smoothstep(0.0, 0.10, vUv.x) * (1.0 - smoothstep(0.90, 1.0, vUv.x));
+    vec3 teal = vec3(0.14, 0.72, 0.52);
+    vec3 green = vec3(0.32, 0.92, 0.42);
+    vec3 violet = vec3(0.44, 0.28, 0.78);
+    vec3 col = mix(teal, green, 0.5 + 0.5 * w2) * 0.7 + violet * pow(rays, 3.0) * 0.55;
+    float a = rays * vert * horiz * 0.55;
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(col * a * 1.7, a);
+  }
+`
+function TwinklingStars() {
+  const materialRef = useRef()
+  const geometry = useMemo(() => {
+    const count = 650
+    const positions = new Float32Array(count * 3)
+    const scales = new Float32Array(count)
+    const phases = new Float32Array(count)
+    const colors = new Float32Array(count * 3)
+    const tint = new THREE.Color()
+    for (let i = 0; i < count; i += 1) {
+      const x = -23 + ((i * 53.7 + 11) % 46)
+      const z = 6 - ((i * 91.3 + 7) % 78)
+      const y = vaultHeightAt(Math.max(-23, Math.min(23, x))) + 2 + ((i * 37.1) % 17)
+      positions.set([x, y, z], i * 3)
+      const bright = i % 9 === 0
+      scales[i] = bright ? 1.5 + (i % 5) * 0.22 : 0.55 + (i % 5) * 0.14
+      phases[i] = (i * 0.61803398875) % 1
+      if (i % 27 === 0) tint.set('#a9c8ff')
+      else if (i % 41 === 0) tint.set('#ffe4b8')
+      else tint.set('#e8f0ff')
+      colors.set([tint.r, tint.g, tint.b], i * 3)
+    }
+    const result = new THREE.BufferGeometry()
+    result.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    result.setAttribute('aScale', new THREE.BufferAttribute(scales, 1))
+    result.setAttribute('aPhase', new THREE.BufferAttribute(phases, 1))
+    result.setAttribute('aColor', new THREE.BufferAttribute(colors, 3))
+    result.computeBoundingSphere()
+    return result
+  }, [])
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: Math.random() * 10 } },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: TWINKLE_VERTEX,
+    fragmentShader: TWINKLE_FRAGMENT,
+  }), [])
+  useFrame((state) => {
+    if (materialRef.current) materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
+  })
+  useEffect(() => () => { geometry.dispose(); material.dispose() }, [geometry, material])
+  return <points geometry={geometry} material={material} ref={(node) => { if (node) materialRef.current = node.material }} />
+}
+function AuroraVeil() {
+  const materialRef = useRef()
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 2 } },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    vertexShader: AURORA_VERTEX,
+    fragmentShader: AURORA_FRAGMENT,
+  }), [])
+  useFrame((state) => {
+    if (materialRef.current) materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
+  })
+  useEffect(() => () => material.dispose(), [material])
+  return (
+    <mesh material={material} position={[-6, 52, -38]} rotation={[-1.12, 0, 0.12]} ref={(node) => { if (node) materialRef.current = node.material }}>
+      <planeGeometry args={[120, 26]} />
+    </mesh>
+  )
+}
+function SkyClouds() {
+  const map = useMemo(() => getSkyCloudTexture(), [])
+  const groupRef = useRef()
+  const materials = useMemo(() => [
+    new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.5, depthWrite: false, fog: false }),
+    new THREE.MeshBasicMaterial({ map: map.clone(), transparent: true, opacity: 0.32, depthWrite: false, fog: false }),
+  ], [map])
+  useEffect(() => {
+    materials[1].map.repeat.set(1.6, 1)
+    materials[1].map.needsUpdate = true
+    return () => materials.forEach((m) => { m.map !== map && m.map.dispose(); m.dispose() })
+  }, [materials, map])
+  useFrame((state) => {
+    if (!groupRef.current) return
+    const t = state.clock.elapsedTime
+    groupRef.current.children[0].position.x = Math.sin(t * 0.016) * 4
+    groupRef.current.children[1].position.x = 6 + Math.sin(t * 0.011 + 2) * 5
+  })
+  return (
+    <group ref={groupRef}>
+      <mesh material={materials[0]} position={[0, 40, -30]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[110, 44]} /></mesh>
+      <mesh material={materials[1]} position={[6, 47, -40]} rotation={[-Math.PI / 2, 0, 0.2]}><planeGeometry args={[120, 48]} /></mesh>
+    </group>
+  )
+}
+function ShootingStars() {
+  const groupRef = useRef()
+  const streakTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 8
+    const context = canvas.getContext('2d')
+    const streak = context.createLinearGradient(0, 0, canvas.width, 0)
+    streak.addColorStop(0, 'rgba(200,220,255,0)')
+    streak.addColorStop(0.75, 'rgba(210,228,255,0.55)')
+    streak.addColorStop(1, 'rgba(255,255,255,1)')
+    context.fillStyle = streak
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.needsUpdate = true
+    return texture
+  }, [])
+  const materials = useMemo(() => [0, 1].map(() => new THREE.MeshBasicMaterial({ map: streakTexture, transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })), [streakTexture])
+  const runs = useMemo(() => [
+    { from: [-20, 46, -18], to: [8, 36, -52], period: 9, offset: 1.5, length: 7 },
+    { from: [18, 48, -30], to: [-12, 38, -58], period: 13, offset: 7, length: 8 },
+  ], [])
+  useFrame((state) => {
+    if (!groupRef.current) return
+    const t = state.clock.elapsedTime
+    groupRef.current.children.forEach((mesh, index) => {
+      const run = runs[index]
+      const cycle = (t + run.offset) % run.period
+      const duration = 0.9
+      if (cycle > duration) {
+        mesh.visible = false
+        return
+      }
+      const k = cycle / duration
+      const eased = 1 - Math.pow(1 - k, 2)
+      mesh.visible = true
+      mesh.position.set(
+        run.from[0] + (run.to[0] - run.from[0]) * eased,
+        run.from[1] + (run.to[1] - run.from[1]) * eased,
+        run.from[2] + (run.to[2] - run.from[2]) * eased,
+      )
+      mesh.material.opacity = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85
+      mesh.material.opacity *= 0.9
+    })
+  })
+  useEffect(() => () => { streakTexture.dispose(); materials.forEach((m) => m.dispose()) }, [streakTexture, materials])
+  return (
+    <group ref={groupRef}>
+      {runs.map((run, index) => {
+        const dx = run.to[0] - run.from[0]
+        const dz = run.to[2] - run.from[2]
+        const yaw = Math.atan2(dx, dz)
+        return (
+          <mesh key={index} material={materials[index]} rotation={[-Math.PI / 2, 0, -yaw + Math.PI / 2]} visible={false}>
+            <planeGeometry args={[run.length, 0.28]} />
+          </mesh>
+        )
+      })}
+    </group>
+  )
+}
+function EnchantedMoon() {
+  const map = useMemo(() => getMoonTexture(), [])
+  const discMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map, fog: false, toneMapped: false }), [map])
+  const haloMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#8faed4', transparent: true, opacity: 0.16, fog: false, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }), [])
+  const coronaMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#c8dcf2', transparent: true, opacity: 0.10, fog: false, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }), [])
+  useEffect(() => () => { discMaterial.dispose(); haloMaterial.dispose(); coronaMaterial.dispose() }, [discMaterial, haloMaterial, coronaMaterial])
+  return (
+    <group>
+      <mesh material={coronaMaterial} position={[14, 58, -44.4]}><circleGeometry args={[10.5, 40]} /></mesh>
+      <mesh material={haloMaterial} position={[14, 58, -44.2]}><circleGeometry args={[6.4, 40]} /></mesh>
+      <mesh material={discMaterial} position={[14, 58, -44]}><circleGeometry args={[3.6, 48]} /></mesh>
+    </group>
+  )
+}
+function Moonbeams() {
+  const map = useMemo(() => getBeamTexture(), [])
+  const material = useMemo(() => new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.16, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), [map])
+  const beams = useMemo(() => [
+    { position: [5, 12, -15], rotation: [0, 0.12, 0.22], size: [7, 26] },
+    { position: [3.4, 12, -33], rotation: [0, -0.1, 0.24], size: [9, 28] },
+    { position: [4.4, 12, -50], rotation: [0, 0.08, 0.22], size: [7, 26] },
+  ], [])
+  useEffect(() => () => material.dispose(), [material])
+  return (
+    <group>
+      {beams.map((beam, index) => (
+        <mesh key={index} material={material} position={beam.position} rotation={beam.rotation}>
+          <planeGeometry args={beam.size} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+function EnchantedNightSky() {
+  const skyMap = useMemo(() => getNightSkyTexture(), [])
+  const skyMaterial = useMemo(() => new THREE.MeshBasicMaterial({ map: skyMap, side: THREE.BackSide, fog: false, toneMapped: false }), [skyMap])
+  useEffect(() => () => skyMaterial.dispose(), [skyMaterial])
+  return (
+    <group>
+      <mesh material={skyMaterial} position={[0, 0, -30]}><sphereGeometry args={[80, 48, 32]} /></mesh>
+      <TwinklingStars />
+      <SkyClouds />
+      <AuroraVeil />
+      <EnchantedMoon />
+      <ShootingStars />
+      <Moonbeams />
+    </group>
+  )
+}
+
+// Tall house-style banners on the nave columns — deep jewel tones and brass
+// rails give the Hogwarts-hall procession without copying any insignia.
+function HouseBanners() {
+  const bannerMaterials = useMemo(() => ['#6e1b1b', '#1d4433', '#1e3358', '#7a5f1e'].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0, side: THREE.DoubleSide })), [])
+  const banners = useMemo(() => [-1, 1].flatMap((side) => [-12, -26, -40, -54].map((z, index) => ({
+    position: [side * 21.82, 8.2, z],
+    rotation: [0, side < 0 ? Math.PI / 2 : -Math.PI / 2, 0],
+    material: (index + (side < 0 ? 0 : 2)) % 4,
+  }))), [])
+  return (
+    <group>
+      {banners.map((banner, index) => (
+        <group key={`banner-${index}`} position={banner.position} rotation={banner.rotation}>
+          <mesh material={brass} position={[0, 2.35, 0]}><cylinderGeometry args={[0.05, 0.05, 2.1, 10]} rotation={[0, 0, Math.PI / 2]} /></mesh>
+          <mesh material={bannerMaterials[banner.material]} position={[0, 0, 0]}><planeGeometry args={[1.6, 4.4]} /></mesh>
+          <mesh material={bannerMaterials[banner.material]} position={[0, -2.62, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[0.8, 0.85, 4]} /></mesh>
+          <mesh material={brass} position={[0, 1.2, 0.02]}><circleGeometry args={[0.3, 20]} /></mesh>
+          <mesh material={bannerMaterials[banner.material]} position={[0, 1.2, 0.035]}><circleGeometry args={[0.22, 20]} /></mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
 function GrandHallShell() {
   const sourceMaps = useTexture(HALL_TEXTURES)
   const { wallMaterial, entranceWallMaterial, floorMaterial, ceilingMaterial, rugMaterial } = useMemo(() => {
@@ -1216,16 +1755,15 @@ function GrandHallShell() {
       })
       return result
     }
-    const walls = makeMaps([['map', sourceMaps.wallMap], ['normalMap', sourceMaps.wallNormal], ['armMap', sourceMaps.wallArm]], 7.5, 2.8)
-    const entranceWalls = makeMaps([['map', sourceMaps.wallMap], ['normalMap', sourceMaps.wallNormal], ['armMap', sourceMaps.wallArm]], 4.4, 2.35)
-    const floor = makeMaps([['map', sourceMaps.floorMap], ['normalMap', sourceMaps.floorNormal], ['armMap', sourceMaps.floorArm]], 11, 22)
-    const ceiling = makeMaps([['map', sourceMaps.ceilingMap], ['normalMap', sourceMaps.ceilingNormal], ['armMap', sourceMaps.ceilingArm]], 8, 22)
+    const walls = makeMaps([['map', sourceMaps.wallMap], ['normalMap', sourceMaps.wallNormal], ['armMap', sourceMaps.wallArm]], 7.5, 2.8, [4, 2])
+    const entranceWalls = makeMaps([['map', sourceMaps.wallMap], ['normalMap', sourceMaps.wallNormal], ['armMap', sourceMaps.wallArm]], 4.4, 2.35, [4, 2])
+    const floor = makeMaps([['map', sourceMaps.floorMap], ['normalMap', sourceMaps.floorNormal], ['armMap', sourceMaps.floorArm]], 11, 22, [6, 10])
     const rug = makeMaps([['map', sourceMaps.rugMap]], 1, 4.5)
     return {
       wallMaterial: new THREE.MeshStandardMaterial({ map: walls.map, normalMap: walls.normalMap, roughnessMap: walls.armMap, normalScale: new THREE.Vector2(0.68, 0.68), color: '#6e5c50', roughness: 0.97, metalness: 0 }),
       entranceWallMaterial: new THREE.MeshStandardMaterial({ map: entranceWalls.map, normalMap: entranceWalls.normalMap, roughnessMap: entranceWalls.armMap, normalScale: new THREE.Vector2(0.82, 0.82), color: '#8d786a', emissive: '#24130c', emissiveIntensity: 0.18, roughness: 0.98, metalness: 0 }),
       floorMaterial: new THREE.MeshStandardMaterial({ map: floor.map, normalMap: floor.normalMap, roughnessMap: floor.armMap, normalScale: new THREE.Vector2(0.5, 0.5), color: '#7d756e', roughness: 0.96, metalness: 0 }),
-      ceilingMaterial: new THREE.MeshStandardMaterial({ map: ceiling.map, normalMap: ceiling.normalMap, roughnessMap: ceiling.armMap, normalScale: new THREE.Vector2(0.62, 0.62), color: '#80583c', emissive: '#180b05', emissiveIntensity: 0.15, roughness: 0.94, metalness: 0, side: THREE.DoubleSide }),
+      ceilingMaterial: glassVaultMaterial,
       rugMaterial: new THREE.MeshStandardMaterial({ map: rug.map, color: '#887168', roughness: 0.96, metalness: 0 }),
     }
   }, [sourceMaps])
@@ -1266,13 +1804,15 @@ function GrandHallShell() {
       <mesh material={wallMaterial} position={[HALL_HALF_WIDTH, 10.5, -33]}><boxGeometry args={[1.2, 21, 78]} /></mesh>
       <mesh material={wallMaterial} position={[0, 12, -72.35]}><boxGeometry args={[48.2, 24, 1.1]} /></mesh>
       <StaticInstances material={entranceWallMaterial} transforms={entranceReturnWall} />
-      <mesh material={ceilingMaterial} geometry={gothicVaultGeometry} />
+      <EnchantedNightSky />
+      <mesh material={ceilingMaterial} geometry={gothicVaultGeometry} renderOrder={2} />
+      <HouseBanners />
       <StaticInstances material={wallMaterial} transforms={columns} />
       <StaticInstances material={wallMaterial} transforms={columnBases} />
       <StaticInstances geometry={gothicVaultRibGeometry} material={carvedOak} transforms={vaultRibs} />
       <StaticInstances geometry={diagonalVaultRibGeometryA} material={carvedOak} transforms={diagonalVaultBays} />
       <StaticInstances geometry={diagonalVaultRibGeometryB} material={carvedOak} transforms={diagonalVaultBays} />
-      <StaticInstances material={carvedOak} transforms={longitudinalRibs} />
+      <StaticInstances material={blackenedIron} transforms={longitudinalRibs} />
       <StaticInstances geometry={vaultBossGeometry} material={brass} transforms={vaultBosses} />
       {aisleRunners.map((runner, index) => (
         <mesh key={`runner-${index}`} material={rugMaterial} rotation={[-Math.PI / 2, 0, 0]} position={runner.position}>
@@ -2406,6 +2946,7 @@ export default function LibraryWorld({
       <hemisphereLight color="#bac6ce" groundColor="#31231d" intensity={1.66} />
       <directionalLight position={[-5, 7.5, 11]} color="#ffc078" intensity={2.15} />
       <directionalLight position={[4, 18, -50]} color="#a6bdca" intensity={1.35} />
+      <directionalLight position={[10, 42, -28]} color="#9db8d6" intensity={1.5} />
       <MoonlightShaft />
       {[-8, -34, -60].map((z) => <pointLight key={`warm-nave-${z}`} position={[0, 5.4, z]} color="#d48648" intensity={74} distance={24} decay={1.82} />)}
       <RenderController />
