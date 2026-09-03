@@ -68,12 +68,15 @@ const moonDisc = new THREE.MeshBasicMaterial({ color: '#dce8eb', transparent: tr
 const flameMaterial = new THREE.MeshBasicMaterial({ color: '#ffc071', toneMapped: false })
 const lanternGlowMaterial = new THREE.MeshBasicMaterial({ color: '#ffb15a', transparent: true, opacity: 0.82, toneMapped: false })
 const courtyardIron = new THREE.MeshStandardMaterial({ color: '#12100e', roughness: 0.4, metalness: 0.78 })
-const courtyardFoliage = new THREE.MeshStandardMaterial({ color: '#17251d', roughness: 0.98, metalness: 0 })
+const courtyardFoliage = new THREE.MeshStandardMaterial({ color: '#17271f', roughness: 0.98, metalness: 0 })
+const courtyardFoliageLight = new THREE.MeshStandardMaterial({ color: '#26372a', roughness: 0.98, metalness: 0 })
 const courtyardTrunk = new THREE.MeshStandardMaterial({ color: '#302016', roughness: 0.96, metalness: 0 })
-const courtyardNight = new THREE.MeshStandardMaterial({ color: '#10151a', emissive: '#07111a', emissiveIntensity: 0.45, roughness: 0.9, metalness: 0 })
+const courtyardRecess = new THREE.MeshStandardMaterial({ color: '#171b1d', emissive: '#071018', emissiveIntensity: 0.34, roughness: 0.94, metalness: 0 })
+const courtyardWindow = new THREE.MeshStandardMaterial({ color: '#5a321b', emissive: '#c87734', emissiveIntensity: 1.65, transparent: true, opacity: 0.9, roughness: 0.72, metalness: 0, side: THREE.DoubleSide })
+const courtyardSky = new THREE.MeshBasicMaterial({ color: '#07111b', side: THREE.BackSide, depthWrite: false, fog: false })
 const interactionMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })
 const unitBoxGeometry = new THREE.BoxGeometry(1, 1, 1)
-const courtyardTreeGeometry = new THREE.ConeGeometry(1, 1, 10)
+const courtyardFoliageGeometry = new THREE.IcosahedronGeometry(1, 1)
 const courtyardTrunkGeometry = new THREE.CylinderGeometry(1, 1, 1, 9)
 function createBookGeometry() {
   const source = new THREE.BoxGeometry(1, 1, 1).toNonIndexed()
@@ -183,6 +186,26 @@ clerestoryPaneShape.lineTo(0.9, 0.62)
 clerestoryPaneShape.lineTo(0.9, -1.8)
 clerestoryPaneShape.closePath()
 const clerestoryPaneGeometry = new THREE.ShapeGeometry(clerestoryPaneShape)
+const courtyardArchShape = new THREE.Shape()
+courtyardArchShape.moveTo(-1, -1.8)
+courtyardArchShape.lineTo(-1, 0.38)
+courtyardArchShape.bezierCurveTo(-1, 0.9, -0.52, 1.48, 0, 2.08)
+courtyardArchShape.bezierCurveTo(0.52, 1.48, 1, 0.9, 1, 0.38)
+courtyardArchShape.lineTo(1, -1.8)
+courtyardArchShape.closePath()
+const courtyardArchPaneGeometry = new THREE.ShapeGeometry(courtyardArchShape)
+const courtyardArchFrameGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-1, -1.8, 0), new THREE.Vector3(-1, 0.42, 0),
+  new THREE.Vector3(-0.72, 1.12, 0), new THREE.Vector3(0, 2.12, 0),
+  new THREE.Vector3(0.72, 1.12, 0), new THREE.Vector3(1, 0.42, 0),
+  new THREE.Vector3(1, -1.8, 0), new THREE.Vector3(-1, -1.8, 0),
+], false, 'catmullrom', 0.08), 48, 0.07, 8, false)
+const courtyardPortalFrameGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-1, -1.8, 0), new THREE.Vector3(-1, 0.42, 0),
+  new THREE.Vector3(-0.72, 1.12, 0), new THREE.Vector3(0, 2.12, 0),
+  new THREE.Vector3(0.72, 1.12, 0), new THREE.Vector3(1, 0.42, 0),
+  new THREE.Vector3(1, -1.8, 0),
+], false, 'catmullrom', 0.08), 44, 0.07, 8, false)
 const clerestoryFrameGeometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
   new THREE.Vector3(-0.92, -1.82, 0), new THREE.Vector3(-0.92, 0.64, 0),
   new THREE.Vector3(0, 2.08, 0), new THREE.Vector3(0.92, 0.64, 0),
@@ -430,6 +453,66 @@ function NormalizedFixture({ url, position, rotation = [0, 0, 0], scale = 1 }) {
     return clone
   }, [scene])
   return <primitive object={model} position={position} rotation={rotation} scale={scale} />
+}
+
+function InstancedModelPart({ geometry, material, sourceMatrix, normalizationMatrix, transforms }) {
+  const ref = useRef()
+  useLayoutEffect(() => {
+    if (!ref.current) return
+    const placementMatrix = new THREE.Matrix4()
+    const finalMatrix = new THREE.Matrix4()
+    const quaternion = new THREE.Quaternion()
+    const position = new THREE.Vector3()
+    const scale = new THREE.Vector3()
+    const euler = new THREE.Euler()
+    transforms.forEach((transform, index) => {
+      position.fromArray(transform.position)
+      euler.fromArray(transform.rotation || [0, 0, 0])
+      quaternion.setFromEuler(euler)
+      if (Array.isArray(transform.scale)) scale.fromArray(transform.scale)
+      else scale.setScalar(transform.scale || 1)
+      placementMatrix.compose(position, quaternion, scale)
+      finalMatrix.copy(placementMatrix).multiply(normalizationMatrix).multiply(sourceMatrix)
+      ref.current.setMatrixAt(index, finalMatrix)
+    })
+    ref.current.instanceMatrix.needsUpdate = true
+    ref.current.computeBoundingSphere()
+  }, [normalizationMatrix, sourceMatrix, transforms])
+  return <instancedMesh ref={ref} args={[geometry, material, transforms.length]} castShadow={false} receiveShadow={false} />
+}
+
+function NormalizedModelInstances({ url, transforms, materialColor }) {
+  const { scene } = useGLTF(url)
+  const { normalizationMatrix, parts } = useMemo(() => {
+    scene.updateMatrixWorld(true)
+    const bounds = new THREE.Box3().setFromObject(scene)
+    const size = bounds.getSize(new THREE.Vector3())
+    const center = bounds.getCenter(new THREE.Vector3())
+    const normalizer = 1 / Math.max(0.001, size.y)
+    const normalization = new THREE.Matrix4().compose(
+      new THREE.Vector3(-center.x * normalizer, -bounds.min.y * normalizer, -center.z * normalizer),
+      new THREE.Quaternion(),
+      new THREE.Vector3(normalizer, normalizer, normalizer),
+    )
+    const meshes = []
+    scene.traverse((object) => {
+      if (!object.isMesh) return
+      const material = object.material.clone()
+      if (materialColor && material.color) material.color.set(materialColor)
+      if (material.emissive) material.emissive.set('#000000')
+      material.roughness = 1
+      meshes.push({
+        geometry: object.geometry,
+        material,
+        sourceMatrix: object.matrixWorld.clone(),
+      })
+    })
+    return { normalizationMatrix: normalization, parts: meshes }
+  }, [materialColor, scene])
+  useEffect(() => () => parts.forEach((part) => part.material.dispose()), [parts])
+  return parts.map((part, index) => (
+    <InstancedModelPart key={`${url}-${index}`} {...part} normalizationMatrix={normalizationMatrix} transforms={transforms} />
+  ))
 }
 
 function PolyHavenChandelier({ position, scale = 3.1 }) {
@@ -995,17 +1078,64 @@ function EntranceArchitecture() {
 function CourtyardLantern({ position, rotation = [0, 0, 0], withLight = false }) {
   return (
     <group position={position} rotation={rotation}>
-      <mesh material={courtyardIron} position={[0, 0, -0.12]}><boxGeometry args={[0.48, 0.72, 0.12]} /></mesh>
-      <mesh material={courtyardIron} position={[0, -0.22, 0.16]}><boxGeometry args={[0.76, 0.1, 0.54]} /></mesh>
-      <mesh material={lanternGlowMaterial} position={[0, 0.03, 0.22]} scale={[1, 1.45, 0.62]}><sphereGeometry args={[0.12, 10, 8]} /></mesh>
-      {withLight && <pointLight position={[0, 0, 0.42]} color="#e4944f" intensity={13} distance={9} decay={2} />}
+      <mesh material={courtyardIron} position={[0, 0, -0.11]}><boxGeometry args={[0.36, 0.78, 0.12]} /></mesh>
+      <mesh material={courtyardIron} position={[0, -0.26, 0.16]}><boxGeometry args={[0.64, 0.08, 0.5]} /></mesh>
+      <mesh material={courtyardIron} position={[0, 0.3, 0.15]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.38, 0.38, 0.08]} /></mesh>
+      <mesh material={lanternGlowMaterial} position={[0, 0.02, 0.2]} scale={[0.82, 1.5, 0.58]}><sphereGeometry args={[0.12, 10, 8]} /></mesh>
+      {withLight && <pointLight position={[0, 0, 0.42]} color="#e9a05a" intensity={17} distance={9.5} decay={2} />}
+    </group>
+  )
+}
+
+function PointedStonePanel({ position, rotation = [0, 0, 0], scale = [1, 1, 1], material = courtyardRecess, lit = false, open = false }) {
+  return (
+    <group position={position} rotation={rotation} scale={scale}>
+      {!open && <mesh geometry={courtyardArchPaneGeometry} material={material} position={[0, 0, 0.015]} />}
+      <mesh geometry={courtyardArchFrameGeometry} material={stone} position={[0, 0, 0.075]} />
+      {lit && <>
+        <mesh geometry={courtyardArchPaneGeometry} material={courtyardWindow} position={[0, -0.16, 0.095]} scale={[0.38, 0.78, 1]} />
+        <mesh material={courtyardIron} position={[0, -0.28, 0.105]}><boxGeometry args={[0.035, 2.45, 0.045]} /></mesh>
+        <mesh material={courtyardIron} position={[0, -0.28, 0.108]}><boxGeometry args={[0.62, 0.04, 0.045]} /></mesh>
+      </>}
+    </group>
+  )
+}
+
+function ExteriorFacadeDetails({ wallMaterial, wallFieldMaterial }) {
+  const facadeWings = useMemo(() => [
+    { position: [-10.15, 8, 8.69], scale: [10.9, 16, 0.32] },
+    { position: [10.15, 8, 8.69], scale: [10.9, 16, 0.32] },
+    { position: [0, 13.05, 8.56], scale: [9.5, 6.15, 0.32] },
+  ], [])
+  const buttresses = useMemo(() => [-14.5, -10.5, -5.35, 5.35, 10.5, 14.5].map((x) => ({
+    position: [x, 4.2, 8.62], scale: [0.72, 8.4, 1.05],
+  })), [])
+  const ledges = useMemo(() => [
+    { position: [-10, 1.05, 8.72], scale: [10.8, 0.18, 0.38] },
+    { position: [10, 1.05, 8.72], scale: [10.8, 0.18, 0.38] },
+    { position: [-10, 8.1, 8.7], scale: [10.8, 0.2, 0.42] },
+    { position: [10, 8.1, 8.7], scale: [10.8, 0.2, 0.42] },
+  ], [])
+  return (
+    <group name="exterior-facade-details">
+      <StaticInstances material={wallFieldMaterial} transforms={facadeWings} />
+      <StaticInstances material={wallMaterial} transforms={buttresses} />
+      <StaticInstances material={wallMaterial} transforms={ledges} />
+      <mesh geometry={courtyardPortalFrameGeometry} material={wallMaterial} position={[0, 4.68, 9.04]} scale={[4.55, 2.48, 1]} />
+      <mesh geometry={courtyardPortalFrameGeometry} material={stone} position={[0, 4.68, 9.09]} scale={[4.18, 2.33, 1]} />
+      {[-12.15, -7.55, 7.55, 12.15].map((x, index) => (
+        <PointedStonePanel key={x} position={[x, 4.35, 8.91]} scale={[1.06, 1.4, 1]} lit={index === 1 || index === 2} />
+      ))}
+      <PointedStonePanel position={[0, 13.15, 8.86]} scale={[1.35, 1.68, 1]} lit />
+      <CourtyardLantern position={[-5.45, 4.25, 9.15]} withLight />
+      <CourtyardLantern position={[5.45, 4.25, 9.15]} withLight />
     </group>
   )
 }
 
 function ExteriorCourtyard() {
   const sourceMaps = useTexture(ENTRANCE_STONE_TEXTURES)
-  const { floorMaterial, wallMaterial, pathMaterial } = useMemo(() => {
+  const { floorMaterial, wallMaterial, wallFieldMaterial, pathMaterial } = useMemo(() => {
     const makeMaps = (repeatX, repeatY) => {
       const maps = {}
       Object.entries(sourceMaps).forEach(([key, texture]) => {
@@ -1019,88 +1149,162 @@ function ExteriorCourtyard() {
       })
       return maps
     }
-    const floor = makeMaps(7.5, 6.2)
-    const walls = makeMaps(1.4, 1.8)
-    const path = makeMaps(1.3, 6.5)
+    const floor = makeMaps(8.5, 7.2)
+    const walls = makeMaps(1.65, 2.1)
+    const wallField = makeMaps(7.4, 2.35)
+    const path = makeMaps(1.8, 7.2)
     return {
-      floorMaterial: new THREE.MeshStandardMaterial({ map: floor.map, normalMap: floor.normalMap, roughnessMap: floor.armMap, normalScale: new THREE.Vector2(0.42, 0.42), color: '#5b5550', roughness: 0.98 }),
-      wallMaterial: new THREE.MeshStandardMaterial({ map: walls.map, normalMap: walls.normalMap, roughnessMap: walls.armMap, normalScale: new THREE.Vector2(0.65, 0.65), color: '#554941', emissive: '#120b08', emissiveIntensity: 0.12, roughness: 0.98 }),
-      pathMaterial: new THREE.MeshStandardMaterial({ map: path.map, normalMap: path.normalMap, roughnessMap: path.armMap, normalScale: new THREE.Vector2(0.5, 0.5), color: '#81756a', roughness: 0.97 }),
+      floorMaterial: new THREE.MeshStandardMaterial({ map: floor.map, normalMap: floor.normalMap, roughnessMap: floor.armMap, normalScale: new THREE.Vector2(0.46, 0.46), color: '#373c3e', roughness: 0.93 }),
+      wallMaterial: new THREE.MeshStandardMaterial({ map: walls.map, normalMap: walls.normalMap, roughnessMap: walls.armMap, normalScale: new THREE.Vector2(0.72, 0.72), color: '#5b554f', emissive: '#0c0a09', emissiveIntensity: 0.08, roughness: 0.98 }),
+      wallFieldMaterial: new THREE.MeshStandardMaterial({ map: wallField.map, normalMap: wallField.normalMap, roughnessMap: wallField.armMap, normalScale: new THREE.Vector2(0.66, 0.66), color: '#4f4d49', emissive: '#08090a', emissiveIntensity: 0.06, roughness: 0.98 }),
+      pathMaterial: new THREE.MeshStandardMaterial({ map: path.map, normalMap: path.normalMap, roughnessMap: path.armMap, normalScale: new THREE.Vector2(0.58, 0.58), color: '#4a4d4d', roughness: 0.88 }),
     }
   }, [sourceMaps])
   const sideWallTransforms = useMemo(() => [-1, 1].map((side) => ({
-    position: [side * 14.4, 2.85, 20.15], scale: [0.78, 5.7, 24.5],
+    position: [side * 14.3, 3.65, 20.15], scale: [0.9, 7.3, 24.5],
   })), [])
-  const sideButtresses = useMemo(() => [-1, 1].flatMap((side) => [10.4, 15.55, 20.7, 25.85, 31].map((z) => ({
-    position: [side * 13.92, 2.72, z], scale: [1.45, 5.45, 0.72],
+  const sideButtresses = useMemo(() => [-1, 1].flatMap((side) => [10.25, 15.3, 20.35, 25.4, 30.45].map((z) => ({
+    position: [side * 13.78, 3.45, z], scale: [1.55, 6.9, 0.82],
   }))), [])
-  const rearButtresses = useMemo(() => [-12.2, -8.15, -4.1, 4.1, 8.15, 12.2].map((x) => ({
-    position: [x, 2.72, 31.95], scale: [0.72, 5.45, 1.42],
+  const sideButtressCaps = useMemo(() => [-1, 1].flatMap((side) => [10.25, 15.3, 20.35, 25.4, 30.45].flatMap((z) => [
+    { position: [side * 13.58, 0.7, z], scale: [1.95, 0.4, 1.2] },
+    { position: [side * 13.7, 6.5, z], scale: [1.72, 0.28, 1.02] },
+  ])), [])
+  const sideCornices = useMemo(() => [-1, 1].flatMap((side) => [
+    { position: [side * 13.7, 0.78, 20.15], scale: [1.35, 0.2, 24.4] },
+    { position: [side * 13.72, 6.72, 20.15], scale: [1.28, 0.24, 24.4] },
+  ]), [])
+  const rearButtresses = useMemo(() => [-12.3, -8.2, -3.65, 3.65, 8.2, 12.3].map((x) => ({
+    position: [x, 3.35, 31.72], scale: [0.78, 6.7, 1.5],
   })), [])
-  const archBackings = useMemo(() => [
-    ...[-1, 1].flatMap((side) => [12.95, 18.1, 23.25, 28.4].map((z) => ({ position: [side * 13.96, 2.85, z], scale: [0.08, 3.85, 3.76] }))),
-    ...[-10.15, -6.1, 6.1, 10.15].map((x) => ({ position: [x, 2.85, 31.5], scale: [3.18, 3.85, 0.08] })),
+  const rearWallTransforms = useMemo(() => [
+    { position: [-8.8, 3.35, 31.95], scale: [12, 6.7, 0.9] },
+    { position: [8.8, 3.35, 31.95], scale: [12, 6.7, 0.9] },
+    { position: [0, 6.3, 31.95], scale: [5.6, 1.2, 0.9] },
   ], [])
-  const treePositions = useMemo(() => [
-    ...[-1, 1].flatMap((side) => [11.4, 16.7, 22, 27.3].map((z, index) => ({
-      position: [side * (15.55 + (index % 2) * 0.35), 7.55, z], scale: [2.15, 5.1 + (index % 2) * 0.7, 2.15],
-    }))),
-    ...[-11.7, -7.6, 7.6, 11.7].map((x, index) => ({ position: [x, 7.35, 33.25], scale: [2.25, 4.8 + (index % 2) * 0.65, 2.25] })),
+  const treeBases = useMemo(() => [
+    ...[-1, 1].flatMap((side) => [12, 18.5, 25, 30].map((z, index) => [side * (16 + (index % 2) * 0.55), z])),
+    ...[-12, -7.2, 7.2, 12].map((x, index) => [x, 34 + (index % 2) * 0.55]),
   ], [])
-  const trunkPositions = useMemo(() => treePositions.map((tree) => ({
-    position: [tree.position[0], 4.15, tree.position[2]], scale: [0.3, 4.4, 0.3],
-  })), [treePositions])
+  const trunkPositions = useMemo(() => treeBases.flatMap(([x, z], index) => [
+    { position: [x, 4.8, z], rotation: [0, 0, index % 2 ? 0.08 : -0.06], scale: [0.34, 7.2, 0.34] },
+    { position: [x + 0.65, 7.1, z], rotation: [0, 0, -0.48], scale: [0.16, 2.5, 0.16] },
+  ]), [treeBases])
+  const canopyPositions = useMemo(() => treeBases.flatMap(([x, z], index) => {
+    const lift = (index % 3) * 0.24
+    return [
+      { position: [x, 9.15 + lift, z], scale: [1.9, 1.65, 1.82] },
+      { position: [x - 1.35, 8.75 + lift, z + 0.2], scale: [1.55, 1.35, 1.58] },
+      { position: [x + 1.28, 8.95 + lift, z - 0.28], scale: [1.62, 1.42, 1.55] },
+      { position: [x + 0.15, 10.45 + lift, z + 0.15], scale: [1.45, 1.28, 1.42] },
+      { position: [x - 0.92, 10.05 + lift, z - 0.45], scale: [1.28, 1.18, 1.22] },
+      { position: [x + 1.05, 10.15 + lift, z + 0.45], scale: [1.25, 1.12, 1.28] },
+      { position: [x - 2.05, 9.35 + lift, z - 0.12], scale: [1.1, 1.05, 1.15] },
+    ]
+  }), [treeBases])
+  const canopyHighlights = useMemo(() => canopyPositions.filter((_, index) => index % 3 === 0).map((leaf) => ({
+    ...leaf,
+    position: [leaf.position[0] - 0.18, leaf.position[1] + 0.15, leaf.position[2] - 0.12],
+    scale: leaf.scale.map((value) => value * 0.72),
+  })), [canopyPositions])
+  const sideBeds = useMemo(() => [-1, 1].flatMap((side) => [12.6, 17.65, 22.7, 27.75].map((z) => ({
+    position: [side * 11.9, 0.34, z], scale: [1.35, 0.68, 4.45],
+  }))), [])
+  const hedgeBlocks = useMemo(() => sideBeds.map((bed, index) => ({
+    position: [bed.position[0], 0.86 + (index % 2) * 0.04, bed.position[2]],
+    rotation: [0, (index % 3 - 1) * 0.018, 0],
+    scale: [1.08, 0.62, 4.05],
+  })), [sideBeds])
   const gateBars = useMemo(() => [
-    ...[-2.2, -1.65, -1.1, -0.55, 0, 0.55, 1.1, 1.65, 2.2].map((x) => ({ position: [x, 2.55, 31.05], scale: [0.075, 4.75, 0.09] })),
-    { position: [0, 1.15, 31.02], scale: [5.1, 0.12, 0.1] },
-    { position: [0, 3.78, 31.02], scale: [5.1, 0.12, 0.1] },
+    ...[-2.05, -1.55, -1.02, -0.5, 0, 0.5, 1.02, 1.55, 2.05].map((x) => ({ position: [x, 2.35, 31.2], scale: [0.065, 4.3, 0.075] })),
+    { position: [0, 0.95, 31.17], scale: [4.65, 0.1, 0.09] },
+    { position: [0, 3.55, 31.17], scale: [4.65, 0.1, 0.09] },
+    { position: [-1.1, 2.3, 31.12], rotation: [0, 0, 0.6], scale: [0.055, 2.45, 0.065] },
+    { position: [1.1, 2.3, 31.12], rotation: [0, 0, -0.6], scale: [0.055, 2.45, 0.065] },
   ], [])
-  const pathBorders = useMemo(() => [-1, 1].map((side) => ({ position: [side * 3.35, 0.105, 20.1], scale: [0.09, 0.05, 23.2] })), [])
+  const pathCurbs = useMemo(() => [-1, 1].map((side) => ({ position: [side * 3.85, 0.11, 20.1], scale: [0.18, 0.14, 23.2] })), [])
+  const pavingBands = useMemo(() => [11.2, 15.7, 20.2, 24.7, 29.2].map((z) => ({ position: [0, 0.075, z], scale: [21.4, 0.035, 0.09] })), [])
+  const rearBeds = useMemo(() => [-8.8, 8.8].map((x) => ({ position: [x, 0.38, 29.95], scale: [5.25, 0.76, 2.1] })), [])
+  const shrubPlacements = useMemo(() => [
+    ...sideBeds.map((bed, index) => ({
+      position: [bed.position[0], 0.7, bed.position[2] + (index % 2 ? 0.42 : -0.38)],
+      rotation: [0, index * 0.78, 0],
+      scale: 2.95 + (index % 3) * 0.18,
+    })),
+    ...[-10.1, -7.45, 7.45, 10.1].map((x, index) => ({
+      position: [x, 0.78, 29.72], rotation: [0, index * 0.94, 0], scale: 2.95 + (index % 2) * 0.2,
+    })),
+  ], [sideBeds])
+  const gardenShrubs = useMemo(() => [
+    { position: [-4.8, 1.3, 36], scale: [3.2, 1.5, 3.2] },
+    { position: [4.8, 1.3, 36], scale: [3.2, 1.5, 3.2] },
+    { position: [-6.5, 2.2, 41], scale: [4.2, 2.3, 3.6] },
+    { position: [6.5, 2.2, 41], scale: [4.2, 2.3, 3.6] },
+  ], [])
 
   return (
     <group name="exterior-courtyard">
+      <mesh material={courtyardSky} position={[0, 12, 18]}><sphereGeometry args={[66, 32, 16]} /></mesh>
+      <directionalLight position={[-9, 14, 29]} color="#7792aa" intensity={0.72} />
       <mesh receiveShadow material={floorMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 20.1]}><planeGeometry args={[29.2, 24.6]} /></mesh>
-      <mesh receiveShadow material={pathMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.084, 20.1]}><planeGeometry args={[6.6, 23.2]} /></mesh>
-      <StaticInstances material={brass} transforms={pathBorders} />
-      <StaticInstances material={wallMaterial} transforms={sideWallTransforms} />
-      <mesh material={wallMaterial} position={[0, 2.85, 32.05]}><boxGeometry args={[29.55, 5.7, 0.78]} /></mesh>
+      <mesh receiveShadow material={pathMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.066, 20.1]}><planeGeometry args={[7.55, 23.2]} /></mesh>
+      <StaticInstances material={wallMaterial} transforms={pathCurbs} />
+      <StaticInstances material={wallMaterial} transforms={pavingBands} />
+      <StaticInstances material={wallFieldMaterial} transforms={sideWallTransforms} />
+      <StaticInstances material={wallFieldMaterial} transforms={rearWallTransforms} />
       <StaticInstances material={wallMaterial} transforms={sideButtresses} />
+      <StaticInstances material={wallMaterial} transforms={sideButtressCaps} />
+      <StaticInstances material={wallMaterial} transforms={sideCornices} />
       <StaticInstances material={wallMaterial} transforms={rearButtresses} />
-      <StaticInstances material={courtyardNight} transforms={archBackings} />
-      {[-1, 1].flatMap((side) => [12.95, 18.1, 23.25, 28.4].map((z) => (
-        <mesh key={`side-arch-${side}-${z}`} geometry={sideGothicArchGeometry} material={wallMaterial} position={[side * 13.82, 0.44, z]} scale={[0.39, 0.39, 0.39]} />
+      {[-1, 1].flatMap((side) => [12.8, 17.85, 22.9, 27.95].map((z, index) => (
+        <PointedStonePanel key={`side-panel-${side}-${z}`} position={[side * 13.74, 3.7, z]} rotation={[0, -side * Math.PI / 2, 0]} scale={[1.18, 1.5, 1]} lit={(index + (side > 0 ? 1 : 0)) % 3 === 0} />
       )))}
-      {[-10.15, -6.1, 6.1, 10.15].map((x) => (
-        <mesh key={`rear-arch-${x}`} geometry={sideGothicArchGeometry} material={wallMaterial} position={[x, 0.44, 31.36]} rotation={[0, Math.PI / 2, 0]} scale={[0.39, 0.39, 0.39]} />
+      {[-10.2, -6.25, 6.25, 10.2].map((x) => (
+        <PointedStonePanel key={`rear-panel-${x}`} position={[x, 3.48, 31.43]} rotation={[0, Math.PI, 0]} scale={[1.28, 1.42, 1]} />
       ))}
-      <mesh material={courtyardNight} position={[0, 2.72, 31.58]}><boxGeometry args={[5.65, 5.15, 0.12]} /></mesh>
+      <PointedStonePanel position={[0, 3.58, 31.38]} rotation={[0, Math.PI, 0]} scale={[2.5, 1.92, 1]} open />
       <StaticInstances material={courtyardIron} transforms={gateBars} />
-      <mesh material={brass} position={[0, 4.72, 30.92]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[2.55, 0.07, 8, 44, Math.PI]} /></mesh>
       <StaticInstances geometry={courtyardTrunkGeometry} material={courtyardTrunk} transforms={trunkPositions} />
-      <StaticInstances geometry={courtyardTreeGeometry} material={courtyardFoliage} transforms={treePositions} />
-      <mesh material={moonDisc} position={[0, 8.5, 31.3]}><circleGeometry args={[1.1, 36]} /></mesh>
-      <mesh material={wallMaterial} position={[-11.65, 0.5, 20.2]}><boxGeometry args={[1.4, 1, 17.5]} /></mesh>
-      <mesh material={wallMaterial} position={[11.65, 0.5, 20.2]}><boxGeometry args={[1.4, 1, 17.5]} /></mesh>
-      <mesh material={courtyardFoliage} position={[-11.65, 1.03, 20.2]}><boxGeometry args={[1.22, 0.42, 17.1]} /></mesh>
-      <mesh material={courtyardFoliage} position={[11.65, 1.03, 20.2]}><boxGeometry args={[1.22, 0.42, 17.1]} /></mesh>
-      <CourtyardLantern position={[-13.45, 3.45, 15.55]} rotation={[0, Math.PI / 2, 0]} withLight />
-      <CourtyardLantern position={[13.45, 3.45, 15.55]} rotation={[0, -Math.PI / 2, 0]} withLight />
-      <CourtyardLantern position={[-13.45, 3.45, 25.85]} rotation={[0, Math.PI / 2, 0]} />
-      <CourtyardLantern position={[13.45, 3.45, 25.85]} rotation={[0, -Math.PI / 2, 0]} />
-      <CourtyardLantern position={[-3.4, 3.45, 31.2]} />
-      <CourtyardLantern position={[3.4, 3.45, 31.2]} />
+      <StaticInstances geometry={courtyardFoliageGeometry} material={courtyardFoliage} transforms={canopyPositions} />
+      <StaticInstances geometry={courtyardFoliageGeometry} material={courtyardFoliageLight} transforms={canopyHighlights} />
+      <StaticInstances material={wallMaterial} transforms={sideBeds} />
+      <StaticInstances material={courtyardFoliage} transforms={hedgeBlocks} />
+      <StaticInstances material={wallMaterial} transforms={rearBeds} />
+      <NormalizedModelInstances url="/assets/models/shrub-03/shrub_03_1k.gltf" transforms={shrubPlacements} materialColor="#314735" />
+      <mesh material={pathMaterial} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 38]}><planeGeometry args={[4.2, 14]} /></mesh>
+      <StaticInstances geometry={courtyardFoliageGeometry} material={courtyardFoliage} transforms={gardenShrubs} />
+      <mesh material={moonDisc} position={[6.8, 13.3, 44]}><sphereGeometry args={[0.92, 28, 20]} /></mesh>
+      <mesh position={[6.8, 13.3, 44.15]} scale={1.75}><sphereGeometry args={[0.92, 20, 14]} /><meshBasicMaterial color="#9bb4c7" transparent opacity={0.08} /></mesh>
+      {[-1, 1].map((side) => <group key={`bench-${side}`} position={[side * 10.95, 0, 20.25]} rotation={[0, side > 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
+        <mesh material={wallMaterial} position={[0, 0.72, 0]}><boxGeometry args={[3.1, 0.2, 0.64]} /></mesh>
+        <mesh material={wallMaterial} position={[-1.18, 0.35, 0]}><boxGeometry args={[0.28, 0.7, 0.56]} /></mesh>
+        <mesh material={wallMaterial} position={[1.18, 0.35, 0]}><boxGeometry args={[0.28, 0.7, 0.56]} /></mesh>
+      </group>)}
+      <CourtyardLantern position={[-13.35, 3.85, 15.3]} rotation={[0, Math.PI / 2, 0]} withLight />
+      <CourtyardLantern position={[13.35, 3.85, 15.3]} rotation={[0, -Math.PI / 2, 0]} withLight />
+      <CourtyardLantern position={[-13.35, 3.85, 25.4]} rotation={[0, Math.PI / 2, 0]} />
+      <CourtyardLantern position={[13.35, 3.85, 25.4]} rotation={[0, -Math.PI / 2, 0]} />
+      <CourtyardLantern position={[-3.45, 4.05, 31.25]} rotation={[0, Math.PI, 0]} withLight />
+      <CourtyardLantern position={[3.45, 4.05, 31.25]} rotation={[0, Math.PI, 0]} withLight />
+      <ExteriorFacadeDetails wallMaterial={wallMaterial} wallFieldMaterial={wallFieldMaterial} />
     </group>
   )
 }
 
 function EntranceScene({ progress, exploreEnabled = false }) {
   const facadeRef = useRef()
+  const courtyardRef = useRef()
   useFrame(() => {
     if (facadeRef.current) facadeRef.current.visible = scenePreparationCount > 0 || progress.current < 0.19
+    if (courtyardRef.current) {
+      courtyardRef.current.visible = exploreEnabled || scenePreparationCount > 0 || progress.current < 0.24
+    }
   })
   return (
     <group name="entrance-scene">
-      <ExteriorCourtyard />
+      <group ref={courtyardRef}>
+        <ExteriorCourtyard />
+      </group>
       <EntranceFrame />
       <group ref={facadeRef}><EntranceArchitecture /></group>
       <Door side={-1} progress={progress} forceClosed={exploreEnabled} openForExplorer={exploreEnabled} />
@@ -1814,9 +2018,10 @@ function InspectionCameraRig({ view }) {
       entranceLeft: { pos: [-4.15, 2.65, -4.2], look: [0, 4.45, 8.45] },
       entranceRight: { pos: [4.15, 2.65, -4.2], look: [0, 4.45, 8.45] },
       entranceThresholdOutside: { pos: [0, 2.05, 12.65], look: [0, 3.2, 8.35] },
+      courtyardFront: { pos: [0, 2.2, 25.5], look: [0, 4.2, 8.45] },
       courtyardRear: { pos: [0, 2.05, 12.8], look: [0, 3.2, 31.5] },
-      courtyardLeft: { pos: [1.5, 2.05, 19], look: [-13.7, 3.1, 20.5] },
-      courtyardRight: { pos: [-1.5, 2.05, 23], look: [13.7, 3.1, 23.8] },
+      courtyardLeft: { pos: [0.8, 2.05, 12.7], look: [-13.7, 3.1, 23.2] },
+      courtyardRight: { pos: [-0.8, 2.05, 26.8], look: [13.7, 3.1, 17.4] },
       table: { pos: [2.9, 2.35, -2.4], look: [4.25, 1.1, -8] },
       candle: { pos: [-2.8, 2.3, -2.5], look: [-4.25, 1.1, -8] },
       aisle: { pos: [-14.5, 2.2, -32], look: [-21, 3.2, -37] },
@@ -2429,4 +2634,5 @@ useGLTF.preload('/assets/models/binder-notebook/binder_notebook_1k.gltf')
 useGLTF.preload('/assets/models/encyclopedia-set/book_encyclopedia_set_01_1k.gltf')
 useGLTF.preload('/assets/models/grandfather-clock/vintage_grandfather_clock_01_1k.gltf')
 useGLTF.preload('/assets/models/lantern-01/Lantern_01_1k.gltf')
+useGLTF.preload('/assets/models/shrub-03/shrub_03_1k.gltf')
 useGLTF.preload('/assets/models/chandelier-03/Chandelier_03_1k.gltf')

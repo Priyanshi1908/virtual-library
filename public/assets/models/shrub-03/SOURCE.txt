@@ -1,0 +1,15 @@
+Asset: Shrub 03
+Author: Rico Cilliers
+Source: https://polyhaven.com/a/shrub_03
+License: CC0 1.0 Universal
+Downloaded: 2026-09-03
+
+Files retained:
+- shrub_03_1k.gltf
+- shrub_03.bin
+- textures/shrub_03_diff_1k.jpg
+- textures/shrub_03_arm_1k.jpg
+- textures/shrub_03_nor_gl_1k.jpg
+
+The 1K glTF package is used for repeated courtyard planting. No unused
+resolutions, interchange formats, or source archives are stored in the project.
