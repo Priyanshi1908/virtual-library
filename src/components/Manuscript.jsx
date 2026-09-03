@@ -439,24 +439,26 @@ export default function Manuscript({ open, book, onClose }) {
       .finally(() => { epubExtension.current = null })
   }, [applyEpubPages])
 
-  const scriptedFlipPrev = useCallback((pageFlip) => {
-    // page-flip's programmatic flip() opens a backward turn with the leaf
-    // swung far off-book, so the curl pops in instead of peeling smoothly.
-    // A scripted corner drag mirrors flipNext('top'): same fold solver, same
-    // near-top path, just traveling left edge to right edge.
+  const scriptedFlip = useCallback((pageFlip, direction) => {
+    // page-flip's programmatic flip() opens every turn with the leaf kicked
+    // ~70° and (backward) swung off-book, so the incoming text reads squeezed
+    // and pops bigger on landing. A shallow scripted corner drag uses the same
+    // fold solver but starts right at the corner, keeping the leaf near-flat
+    // throughout the turn in both directions.
     const block = pageFlip?.getUI?.()?.getDistElement?.()
     const width = block?.offsetWidth || 0
     const height = block?.offsetHeight || 0
     if (!width || !height || typeof pageFlip.startUserTouch !== 'function') {
-      pageFlip?.flipPrev('top')
+      if (direction > 0) pageFlip?.flipNext('top')
+      else pageFlip?.flipPrev('top')
       return
     }
     const token = ++dragToken.current
     // Grab just inside the leaf: outside the page the fold solver swings the
     // corner hundreds of pixels off-book (the old pop-in/flicker).
-    const fromX = 30
-    const toX = width - 30
-    const y = 40
+    const fromX = direction > 0 ? width - 20 : 20
+    const toX = direction > 0 ? 20 : width - 20
+    const y = 28
     const steps = 26
     const stepTime = 24
     pageFlip.startUserTouch({ x: fromX, y })
@@ -485,9 +487,8 @@ export default function Manuscript({ open, book, onClose }) {
     cue('page', .38)
     setTurning(direction > 0 ? 'is-turning-forward' : 'is-turning-back')
     const pageFlip = flipBookRef.current?.pageFlip()
-    if (direction > 0) pageFlip?.flipNext('top')
-    else if (pageFlip) scriptedFlipPrev(pageFlip)
-  }, [currentPage, pages.length, reader.kind, scriptedFlipPrev])
+    if (pageFlip) scriptedFlip(pageFlip, direction)
+  }, [currentPage, pages.length, reader.kind, scriptedFlip])
 
   const turnFromPageClick = useCallback((event) => {
     const bounds = event.currentTarget.getBoundingClientRect()
